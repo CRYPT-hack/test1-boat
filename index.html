@@ -952,24 +952,49 @@ function makeLighthouse() {
   roof.position.y = 5.1;
   g.add(roof);
 
-  const light = new THREE.PointLight(0xffd9a0, 2.5, 26, 2);
+  const light = new THREE.PointLight(0xffd9a0, 4.5, 30, 2);
   light.position.y = 4.5;
   g.add(light);
 
   // rotating beam
   const beamGroup = new THREE.Group();
   beamGroup.position.y = 4.45;
-  const beam = new THREE.Mesh(
-    new THREE.ConeGeometry(2.6, 13, 20, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: 0xffd9a0,
-      transparent: true,
-      opacity: 0.055,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    })
-  );
+  const beamMat = new THREE.ShaderMaterial({
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms: {
+      beamColor: { value: new THREE.Color(1.0, 0.85, 0.62) },
+    },
+    vertexShader: /* glsl */ `
+      varying float vT;      // 0 at apex (lamp), 1 at base (far end)
+      varying vec3 vNrm;
+      varying vec3 vView;
+      void main() {
+        vT = 0.5 - position.y / 13.0;
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vNrm = normalize(mat3(modelMatrix) * normal);
+        vView = cameraPosition - wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 beamColor;
+      varying float vT;
+      varying vec3 vNrm;
+      varying vec3 vView;
+      void main() {
+        // bright at the lamp, dissolving with distance
+        float fall = pow(clamp(1.0 - vT, 0.0, 1.0), 2.4);
+        // fade out silhouette edges so the cone never reads as a circle
+        float edge = abs(dot(normalize(vNrm), normalize(vView)));
+        float a = fall * pow(edge, 1.6);
+        gl_FragColor = vec4(beamColor * a * 1.35, 1.0);
+      }
+    `,
+  });
+  const beam = new THREE.Mesh(new THREE.ConeGeometry(2.8, 13, 24, 1, true), beamMat);
   beam.rotation.z = Math.PI / 2;
   beam.position.x = 6.5;
   beamGroup.add(beam);
