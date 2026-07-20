@@ -277,7 +277,7 @@
     a, button { cursor: none; }
   }
 
-  .scroll-space { position: relative; z-index: -1; height: 640vh; }
+  .scroll-space { position: relative; z-index: -1; height: 900vh; }
 
   @media (max-width: 720px) {
     nav.ui { padding: 1.2rem 1.3rem; }
@@ -347,14 +347,14 @@
   </section>
 
   <section class="section right" id="s-water">
-    <div class="kicker">02 &mdash; Across the Water</div>
+    <div class="kicker">03 &mdash; Across the Water</div>
     <h2>A single boat drifts the <em>center line</em></h2>
     <p>No oar, no hurry. Guided only by current and candlelight, it carries
     the one lantern that never leaves the water.</p>
   </section>
 
   <section class="section" id="s-keeper">
-    <div class="kicker">03 &mdash; The Keeper's Light</div>
+    <div class="kicker">02 &mdash; The Keeper's Light</div>
     <h2>One steady flame against ten thousand <em>wandering ones</em></h2>
     <p>The old lighthouse answers from the far shore — patient, fixed,
     unblinking — while the sky above it slowly fills with drifting stars.</p>
@@ -1031,22 +1031,30 @@ composer.addPass(new OutputPass());
 
 /* ---------------- camera path (scroll-driven) ---------------- */
 const posCurve = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(0, 8.5, 24),
-  new THREE.Vector3(-7, 4.6, 15),
-  new THREE.Vector3(-3, 2.0, 8.5),
-  new THREE.Vector3(6.8, 2.2, 1.8),
-  new THREE.Vector3(2, 3.2, -3),
-  new THREE.Vector3(-5, 4.5, -9),
-  new THREE.Vector3(0, 13, -23),
+  new THREE.Vector3(0, 8.5, 24),     // hero
+  new THREE.Vector3(-7, 4.6, 15),    // descend
+  new THREE.Vector3(2, 3.6, 0),      // approach lighthouse
+  new THREE.Vector3(9, 3.2, -0.6),   // orbit: south (front)
+  new THREE.Vector3(14.8, 3.5, -7),  // orbit: east
+  new THREE.Vector3(9, 3.9, -13.5),  // orbit: north (behind)
+  new THREE.Vector3(3.2, 3.5, -7),   // orbit: west
+  new THREE.Vector3(8.5, 3.0, -1.2), // orbit: closing the loop
+  new THREE.Vector3(6.8, 2.2, 1.8),  // boat, three-quarter
+  new THREE.Vector3(-2, 2.2, 10),    // glide past the boat
+  new THREE.Vector3(0, 12, 21),      // finale rise, wide
 ], false, "centripetal");
 const tgtCurve = new THREE.CatmullRomCurve3([
   new THREE.Vector3(0, 5.0, 2),
   new THREE.Vector3(0, 3.5, 4),
-  new THREE.Vector3(2, 1.2, 5.5),
+  new THREE.Vector3(9, 3.6, -7),     // lock onto lighthouse...
+  new THREE.Vector3(9, 3.6, -7),
+  new THREE.Vector3(9, 3.6, -7),
+  new THREE.Vector3(9, 3.6, -7),
+  new THREE.Vector3(9, 3.6, -7),
+  new THREE.Vector3(9, 3.6, -7),     // ...through the whole orbit
+  new THREE.Vector3(2, 1.0, 5.5),    // swing to the boat
   new THREE.Vector3(2, 1.0, 5.5),
-  new THREE.Vector3(9, 3.4, -7),
-  new THREE.Vector3(9, 4.2, -7),
-  new THREE.Vector3(0, 5.0, 4),
+  new THREE.Vector3(0, 4.5, -2),     // final vista
 ], false, "centripetal");
 
 let progress = 0;
@@ -1066,11 +1074,11 @@ window.addEventListener("mousemove", (e) => {
 
 /* ---------------- DOM: sections, rail, badge ---------------- */
 const sections = [
-  { el: document.getElementById("s-hero"), center: 0.0, width: 0.11 },
-  { el: document.getElementById("s-release"), center: 0.26, width: 0.1 },
-  { el: document.getElementById("s-water"), center: 0.5, width: 0.1 },
-  { el: document.getElementById("s-keeper"), center: 0.74, width: 0.1 },
-  { el: document.getElementById("s-cta"), center: 0.985, width: 0.11 },
+  { el: document.getElementById("s-hero"), center: 0.0, width: 0.09 },
+  { el: document.getElementById("s-release"), center: 0.13, width: 0.06 },
+  { el: document.getElementById("s-keeper"), center: 0.42, width: 0.16 },
+  { el: document.getElementById("s-water"), center: 0.77, width: 0.07 },
+  { el: document.getElementById("s-cta"), center: 0.985, width: 0.1 },
 ];
 const railDot = document.getElementById("rail-dot");
 const railIdx = document.getElementById("rail-idx");
@@ -1115,7 +1123,7 @@ function tick() {
   const dt = Math.min(clock.getDelta ? 0.016 : 0.016, 0.05); // fixed-ish smoothing step
 
   // smooth scroll + parallax
-  progress += (progressTarget - progress) * 0.06;
+  progress += (progressTarget - progress) * 0.045;
   if (window.__freezeAt !== undefined) progress = progressTarget = window.__freezeAt;
   mouseLX += (mouseX - mouseLX) * 0.05;
   mouseLY += (mouseY - mouseLY) * 0.05;
