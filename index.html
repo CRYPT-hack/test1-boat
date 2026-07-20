@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LANTERRA — Night of Ten Thousand Lights</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏮</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #070310;
+    --cream: #f2e6d5;
+    --amber: #ffb45e;
+    --dim: rgba(242, 230, 213, 0.55);
+    --ease: cubic-bezier(0.76, 0, 0.24, 1);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: auto; }
+  html, body { background: var(--bg); }
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    color: var(--cream);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgba(255, 180, 94, 0.35); }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: rgba(242, 230, 213, 0.2); }
+
+  /* ---------- canvas ---------- */
+  #stage {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 1.6s ease 0.2s;
+  }
+  body.ready #stage { opacity: 1; }
+
+  /* ---------- film grain + vignette ---------- */
+  .grain {
+    position: fixed; inset: -50%;
+    z-index: 3; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.05;
+    animation: grain 0.9s steps(4) infinite;
+  }
+  @keyframes grain {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(-2%, 3%); }
+    50% { transform: translate(3%, -2%); }
+    75% { transform: translate(-3%, -3%); }
+    100% { transform: translate(2%, 2%); }
+  }
+  .vignette {
+    position: fixed; inset: 0;
+    z-index: 2; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 52%, rgba(4, 1, 12, 0.55) 100%);
+  }
+
+  /* ---------- preloader ---------- */
+  #preloader {
+    position: fixed; inset: 0;
+    z-index: 50;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1.2rem;
+    transition: transform 1.1s var(--ease);
+  }
+  body.ready #preloader { transform: translateY(-101%); }
+  #preloader .pl-brand {
+    font-size: 0.7rem; letter-spacing: 0.55em;
+    text-transform: uppercase; color: var(--dim);
+  }
+  #pl-count {
+    font-family: "Fraunces", serif;
+    font-style: italic; font-weight: 300;
+    font-size: clamp(4rem, 14vw, 9rem);
+    line-height: 1;
+    color: var(--cream);
+    font-variant-numeric: tabular-nums;
+  }
+  #preloader .pl-line {
+    width: min(320px, 60vw); height: 1px;
+    background: rgba(242, 230, 213, 0.15);
+    position: relative; overflow: hidden;
+  }
+  #preloader .pl-line i {
+    position: absolute; inset: 0;
+    background: var(--amber);
+    transform-origin: left;
+    transform: scaleX(0);
+  }
+
+  /* ---------- fixed UI chrome ---------- */
+  .ui { position: fixed; z-index: 10; }
+  nav.ui {
+    top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.6rem 2.2rem;
+    mix-blend-mode: difference;
+  }
+  .nav-brand {
+    font-family: "Fraunces", serif;
+    font-weight: 500; font-size: 1.05rem;
+    letter-spacing: 0.28em;
+    color: var(--cream); text-decoration: none;
+  }
+  .nav-links { display: flex; gap: 2rem; }
+  .nav-links a {
+    font-size: 0.68rem; letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--dim); text-decoration: none;
+    transition: color 0.3s;
+  }
+  .nav-links a:hover { color: var(--cream); }
+
+  .rail {
+    right: 2.2rem; top: 50%;
+    transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 0.9rem;
+  }
+  .rail .rail-idx {
+    font-size: 0.62rem; letter-spacing: 0.2em;
+    color: var(--dim); writing-mode: vertical-rl;
+    font-variant-numeric: tabular-nums;
+  }
+  .rail .rail-track {
+    width: 1px; height: 26vh;
+    background: rgba(242, 230, 213, 0.14);
+    position: relative;
+  }
+  .rail .rail-dot {
+    position: absolute; left: 50%; top: 0;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--amber);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 12px 2px rgba(255, 180, 94, 0.6);
+  }
+
+  .scroll-badge {
+    left: 2.2rem; bottom: 2rem;
+    width: 96px; height: 96px;
+    opacity: 1; transition: opacity 0.6s;
+  }
+  .scroll-badge.hide { opacity: 0; }
+  .scroll-badge svg { width: 100%; height: 100%; overflow: visible; animation: spin 14s linear infinite; }
+  .scroll-badge text {
+    font-size: 9.5px; letter-spacing: 0.32em;
+    fill: var(--dim); text-transform: uppercase;
+    font-family: "Inter", sans-serif;
+  }
+  .scroll-badge .badge-arrow {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--amber); font-size: 1rem;
+    animation: bob 2.2s ease-in-out infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes bob { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(3px); } }
+
+  /* ---------- sections ---------- */
+  .sections { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+  .section {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    padding: 0 clamp(1.4rem, 6vw, 6rem);
+    opacity: 0;
+    visibility: hidden;
+  }
+  .section .kicker {
+    font-size: 0.66rem; letter-spacing: 0.5em;
+    text-transform: uppercase; color: var(--amber);
+    margin-bottom: 1.1rem;
+  }
+  .section h2 {
+    font-family: "Fraunces", serif;
+    font-weight: 300;
+    font-size: clamp(2.4rem, 7vw, 5.6rem);
+    line-height: 1.02;
+    letter-spacing: 0.01em;
+    max-width: 12ch;
+  }
+  .section h2 em { font-style: italic; color: var(--amber); }
+  .section p {
+    margin-top: 1.4rem;
+    max-width: 42ch;
+    font-weight: 300;
+    font-size: clamp(0.86rem, 1.4vw, 1.02rem);
+    line-height: 1.75;
+    color: var(--dim);
+  }
+  .section.right { align-items: flex-end; text-align: right; }
+  .section.right h2 { max-width: 14ch; }
+
+  /* hero */
+  #s-hero { align-items: center; text-align: center; justify-content: center; }
+  #s-hero .hero-title {
+    font-family: "Fraunces", serif;
+    font-weight: 300;
+    font-size: clamp(3.4rem, 13.5vw, 12rem);
+    line-height: 0.95;
+    letter-spacing: 0.06em;
+    display: flex; overflow: hidden;
+  }
+  #s-hero .hero-title span {
+    display: inline-block;
+    transform: translateY(115%) rotate(4deg);
+    transition: transform 1.1s var(--ease);
+  }
+  body.ready #s-hero .hero-title span { transform: translateY(0) rotate(0); }
+  #s-hero .hero-sub {
+    margin-top: 1.6rem;
+    font-size: 0.72rem; letter-spacing: 0.5em;
+    text-transform: uppercase; color: var(--dim);
+    opacity: 0; transition: opacity 1.2s ease 0.9s;
+  }
+  body.ready #s-hero .hero-sub { opacity: 1; }
+
+  /* CTA */
+  #s-cta { align-items: center; text-align: center; justify-content: center; }
+  .cta-btn {
+    pointer-events: auto;
+    margin-top: 2.4rem;
+    display: inline-flex; align-items: center; gap: 0.9rem;
+    padding: 1.05rem 2.6rem;
+    border: 1px solid rgba(255, 180, 94, 0.45);
+    border-radius: 99px;
+    color: var(--cream); text-decoration: none;
+    font-size: 0.72rem; letter-spacing: 0.34em; text-transform: uppercase;
+    position: relative; overflow: hidden;
+    transition: color 0.4s, border-color 0.4s;
+  }
+  .cta-btn::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: var(--amber);
+    transform: translateY(101%);
+    transition: transform 0.5s var(--ease);
+    z-index: -1;
+  }
+  .cta-btn:hover { color: #1c0d02; border-color: var(--amber); }
+  .cta-btn:hover::before { transform: translateY(0); }
+  .cta-foot {
+    position: absolute; bottom: 2rem; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 2.4rem;
+    font-size: 0.62rem; letter-spacing: 0.22em;
+    text-transform: uppercase; color: rgba(242, 230, 213, 0.35);
+  }
+
+  /* ---------- cursor ---------- */
+  #cursor-dot, #cursor-ring {
+    position: fixed; top: 0; left: 0;
+    z-index: 60; pointer-events: none;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+  }
+  #cursor-dot { width: 6px; height: 6px; background: var(--amber); }
+  #cursor-ring {
+    width: 34px; height: 34px;
+    border: 1px solid rgba(242, 230, 213, 0.35);
+    transition: width 0.3s, height 0.3s, border-color 0.3s;
+  }
+  body.cursor-hover #cursor-ring {
+    width: 56px; height: 56px;
+    border-color: var(--amber);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    #cursor-dot, #cursor-ring { display: block; }
+    body { cursor: none; }
+    a, button { cursor: none; }
+  }
+
+  .scroll-space { position: relative; z-index: -1; height: 640vh; }
+
+  @media (max-width: 720px) {
+    nav.ui { padding: 1.2rem 1.3rem; }
+    .nav-links { gap: 1.1rem; }
+    .rail { right: 1rem; }
+    .scroll-badge { left: 1.2rem; bottom: 1.2rem; width: 74px; height: 74px; }
+    .cta-foot { gap: 1.1rem; flex-wrap: wrap; padding: 0 1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .grain, .scroll-badge svg, .badge-arrow { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- preloader -->
+<div id="preloader" aria-hidden="true">
+  <div class="pl-brand">Lanterra</div>
+  <div id="pl-count">00</div>
+  <div class="pl-line"><i id="pl-bar"></i></div>
+</div>
+
+<!-- 3D stage -->
+<canvas id="stage"></canvas>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<!-- chrome -->
+<nav class="ui">
+  <a class="nav-brand" href="#" id="brand">LANTERRA</a>
+  <div class="nav-links">
+    <a href="#" data-scramble>Festival</a>
+    <a href="#" data-scramble>The Water</a>
+    <a href="#" data-scramble>Contact</a>
+  </div>
+</nav>
+
+<div class="ui rail">
+  <div class="rail-idx" id="rail-idx">01 / 05</div>
+  <div class="rail-track"><div class="rail-dot" id="rail-dot"></div></div>
+</div>
+
+<div class="ui scroll-badge" id="scroll-badge">
+  <svg viewBox="0 0 100 100">
+    <defs>
+      <path id="circlePath" d="M 50,50 m -38,0 a 38,38 0 1,1 76,0 a 38,38 0 1,1 -76,0" />
+    </defs>
+    <text><textPath href="#circlePath">scroll to drift &#183; scroll to drift &#183;</textPath></text>
+  </svg>
+  <div class="badge-arrow">&#8595;</div>
+</div>
+
+<!-- narrative sections -->
+<div class="sections">
+  <section class="section" id="s-hero">
+    <div class="hero-title" aria-label="LANTERRA">
+      <span>L</span><span>A</span><span>N</span><span>T</span><span>E</span><span>R</span><span>R</span><span>A</span>
+    </div>
+    <div class="hero-sub">A night of ten thousand lights</div>
+  </section>
+
+  <section class="section" id="s-release">
+    <div class="kicker">01 &mdash; The Release</div>
+    <h2>The water vanishes beneath a field of <em>rising fire</em></h2>
+    <p>At the first dark hour, every hand lets go at once. Paper, flame, and a
+    wish written small — ten thousand of them, climbing the same quiet sky.</p>
+  </section>
+
+  <section class="section right" id="s-water">
+    <div class="kicker">02 &mdash; Across the Water</div>
+    <h2>A single boat drifts the <em>center line</em></h2>
+    <p>No oar, no hurry. Guided only by current and candlelight, it carries
+    the one lantern that never leaves the water.</p>
+  </section>
+
+  <section class="section" id="s-keeper">
+    <div class="kicker">03 &mdash; The Keeper's Light</div>
+    <h2>One steady flame against ten thousand <em>wandering ones</em></h2>
+    <p>The old lighthouse answers from the far shore — patient, fixed,
+    unblinking — while the sky above it slowly fills with drifting stars.</p>
+  </section>
+
+  <section class="section" id="s-cta">
+    <div class="kicker">04 &mdash; The Next Release</div>
+    <h2>Your light is <em>waiting</em></h2>
+    <a class="cta-btn" href="#" id="cta"><span>Reserve a lantern</span> &#8594;</a>
+    <div class="cta-foot">
+      <span>Lanterra &copy; 2026</span>
+      <span>Crafted in WebGL &middot; Three.js</span>
+      <span>Sound off &middot; Lights on</span>
+    </div>
+  </section>
+</div>
+
+<!-- cursor -->
+<div id="cursor-dot"></div>
+<div id="cursor-ring"></div>
+
+<div class="scroll-space"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { Reflector } from "three/addons/objects/Reflector.js";
+
+/* ============================================================
+   LANTERRA — scroll-driven lantern night
+   All geometry procedural. No external assets.
+   ============================================================ */
+
+history.scrollRestoration = "manual";
+window.scrollTo(0, 0);
+window.addEventListener("load", () => window.scrollTo(0, 0));
+window.addEventListener("pageshow", () => window.scrollTo(0, 0));
+document.querySelectorAll('a[href="#"]').forEach((a) =>
+  a.addEventListener("click", (e) => e.preventDefault())
+);
+
+const FOG_COLOR = new THREE.Color(0x120b26);
+const FOG_DENSITY = 0.016;
+const FIELD_HEIGHT = 26;
+
+const canvas = document.getElementById("stage");
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: true,
+  powerPreference: "high-performance",
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x070310, 1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.85;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(FOG_COLOR.getHex(), FOG_DENSITY);
+
+const camera = new THREE.PerspectiveCamera(
+  55, window.innerWidth / window.innerHeight, 0.1, 900
+);
+camera.position.set(0, 8.5, 24);
+camera.layers.enable(1); // layer 1 = particles skipped by the water reflection pass
+
+/* ---------------- sky dome ---------------- */
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.DoubleSide,
+  depthWrite: false,
+  fog: false,
+  uniforms: { time: { value: 0 } },
+  vertexShader: /* glsl */ `
+    varying vec3 vDir;
+    void main() {
+      vDir = normalize(position);
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_Position = projectionMatrix * mv;
+    }
+  `,
+  fragmentShader: /* glsl */ `
+    uniform float time;
+    varying vec3 vDir;
+    float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+    float noise(vec2 p) {
+      vec2 i = floor(p), f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+                 mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+    }
+    void main() {
+      float h = clamp(vDir.y, 0.0, 1.0);
+      vec3 horizon = vec3(0.165, 0.086, 0.25);
+      vec3 mid     = vec3(0.078, 0.043, 0.18);
+      vec3 zenith  = vec3(0.016, 0.010, 0.055);
+      vec3 col = mix(horizon, mid, smoothstep(0.0, 0.25, h));
+      col = mix(col, zenith, smoothstep(0.2, 0.75, h));
+      // nebula wash
+      float n = noise(vDir.xz * 3.0 + vDir.y * 2.0 + time * 0.008);
+      col += vec3(0.10, 0.045, 0.14) * n * smoothstep(0.05, 0.5, h) * 0.5;
+      // moon
+      vec3 moonDir = normalize(vec3(-0.42, 0.48, -0.62));
+      float m = max(dot(normalize(vDir), moonDir), 0.0);
+      col += vec3(0.75, 0.78, 0.95) * pow(m, 900.0) * 1.6;   // disc
+      col += vec3(0.35, 0.36, 0.55) * pow(m, 24.0) * 0.16;   // halo
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(420, 32, 20), skyMat);
+scene.add(sky);
+
+/* ---------------- stars ---------------- */
+function makeStars(count) {
+  const pos = new Float32Array(count * 3);
+  const size = new Float32Array(count);
+  const phase = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const y = 0.12 + Math.random() * 0.88; // upper dome
+    const r = Math.sqrt(1 - y * y);
+    const R = 390;
+    pos[i * 3] = Math.cos(theta) * r * R;
+    pos[i * 3 + 1] = y * R;
+    pos[i * 3 + 2] = Math.sin(theta) * r * R;
+    size[i] = 1.2 + Math.random() * 2.6;
+    phase[i] = Math.random() * Math.PI * 2;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("aSize", new THREE.BufferAttribute(size, 1));
+  geo.setAttribute("aPhase", new THREE.BufferAttribute(phase, 1));
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: { time: { value: 0 } },
+    vertexShader: /* glsl */ `
+      uniform float time;
+      attribute float aSize;
+      attribute float aPhase;
+      varying float vA;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        float tw = 0.55 + 0.45 * sin(time * 1.4 + aPhase);
+        vA = tw;
+        gl_PointSize = min(aSize * (0.7 + 0.3 * tw) * (320.0 / -mv.z), 8.0);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying float vA;
+      void main() {
+        vec2 c = gl_PointCoord - 0.5;
+        float a = smoothstep(0.5, 0.05, length(c));
+        gl_FragColor = vec4(vec3(0.82, 0.85, 1.0), a * a * vA * 0.85);
+      }
+    `,
+  });
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false;
+  return { pts, mat };
+}
+const stars = makeStars(1300);
+stars.pts.layers.set(1);
+scene.add(stars.pts);
+
+/* ---------------- sky lanterns (instanced) ---------------- */
+const LANTERN_COUNT = 680;
+function makeLanterns() {
+  const base = new THREE.CylinderGeometry(0.34, 0.24, 0.95, 10, 1, true);
+  const geo = new THREE.InstancedBufferGeometry();
+  geo.index = base.index;
+  geo.attributes.position = base.attributes.position;
+  geo.attributes.normal = base.attributes.normal;
+  geo.attributes.uv = base.attributes.uv;
+  geo.instanceCount = LANTERN_COUNT;
+
+  const offset = new Float32Array(LANTERN_COUNT * 3);
+  const phase = new Float32Array(LANTERN_COUNT);
+  const speed = new Float32Array(LANTERN_COUNT);
+  const scale = new Float32Array(LANTERN_COUNT);
+  const hue = new Float32Array(LANTERN_COUNT);
+  for (let i = 0; i < LANTERN_COUNT; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const rad = 5 + 15 * Math.sqrt(Math.random());
+    offset[i * 3] = Math.cos(ang) * rad;
+    offset[i * 3 + 1] = Math.random() * FIELD_HEIGHT;
+    offset[i * 3 + 2] = Math.sin(ang) * rad;
+    phase[i] = Math.random();
+    speed[i] = 0.28 + Math.random() * 0.5;
+    scale[i] = 0.5 + Math.random() * 0.5;
+    hue[i] = Math.random();
+  }
+  geo.setAttribute("iOffset", new THREE.InstancedBufferAttribute(offset, 3));
+  geo.setAttribute("iPhase", new THREE.InstancedBufferAttribute(phase, 1));
+  geo.setAttribute("iSpeed", new THREE.InstancedBufferAttribute(speed, 1));
+  geo.setAttribute("iScale", new THREE.InstancedBufferAttribute(scale, 1));
+  geo.setAttribute("iHue", new THREE.InstancedBufferAttribute(hue, 1));
+
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.DoubleSide,
+    uniforms: {
+      time: { value: 0 },
+      uHeight: { value: FIELD_HEIGHT },
+      fogColor: { value: FOG_COLOR.clone() },
+      fogDensity: { value: FOG_DENSITY },
+    },
+    vertexShader: /* glsl */ `
+      uniform float time;
+      uniform float uHeight;
+      attribute vec3 iOffset;
+      attribute float iPhase;
+      attribute float iSpeed;
+      attribute float iScale;
+      attribute float iHue;
+      varying vec2 vUv;
+      varying float vHue;
+      varying float vAppear;
+      varying float vFlick;
+      varying float vDepth;
+      varying float vLocalY;
+      varying vec3 vNrm;
+      void main() {
+        vUv = uv;
+        vHue = iHue;
+        vLocalY = position.y;
+        vec3 p = position * iScale;
+        float ang = time * (0.12 + iPhase * 0.12) + iPhase * 6.2831;
+        float ca = cos(ang), sa = sin(ang);
+        p = vec3(ca * p.x + sa * p.z, p.y, -sa * p.x + ca * p.z);
+        vNrm = normalMatrix * vec3(ca * normal.x + sa * normal.z, normal.y, -sa * normal.x + ca * normal.z);
+        float yy = mod(iOffset.y + time * iSpeed, uHeight);
+        vec3 world = vec3(iOffset.x, yy, iOffset.z);
+        world.x += sin(time * 0.33 + iPhase * 6.2831) * (0.45 + iPhase * 0.9);
+        world.z += cos(time * 0.27 + iPhase * 4.71) * (0.45 + iPhase * 0.7);
+        vAppear = smoothstep(0.0, 1.6, yy) * (1.0 - smoothstep(uHeight - 3.0, uHeight, yy));
+        vFlick = 0.86 + 0.14 * sin(time * 6.1 + iPhase * 41.0) * sin(time * 9.3 + iPhase * 17.0);
+        // shrink lanterns the camera is about to hit: kills full-screen overdraw + clip-pop
+        vec4 mvc = modelViewMatrix * vec4(world, 1.0);
+        p *= smoothstep(1.2, 3.2, -mvc.z);
+        vec4 mv = modelViewMatrix * vec4(p + world, 1.0);
+        vDepth = -mv.z;
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 fogColor;
+      uniform float fogDensity;
+      varying vec2 vUv;
+      varying float vHue;
+      varying float vAppear;
+      varying float vFlick;
+      varying float vDepth;
+      varying float vLocalY;
+      varying vec3 vNrm;
+      void main() {
+        vec3 warmA = vec3(1.00, 0.58, 0.16); // amber
+        vec3 warmB = vec3(1.00, 0.32, 0.15); // coral
+        vec3 warmC = vec3(1.00, 0.42, 0.62); // pink
+        vec3 base = vHue < 0.62
+          ? mix(warmA, warmB, vHue / 0.62)
+          : mix(warmB, warmC, (vHue - 0.62) / 0.38);
+        // candle sits low: bottom glows hardest
+        float g = mix(2.2, 0.72, smoothstep(-0.5, 0.5, vLocalY));
+        float ribs = 0.93 + 0.07 * sin(vUv.x * 6.2831 * 7.0);
+        float topDark = 1.0 - 0.4 * smoothstep(0.32, 0.5, vLocalY);
+        vec3 col = base * g * ribs * topDark * vFlick;
+        col *= 0.82 + 0.18 * abs(normalize(vNrm).z);
+        col *= 1.05; // HDR push for bloom
+        float fogF = 1.0 - exp(-fogDensity * fogDensity * vDepth * vDepth);
+        col = mix(col, fogColor, fogF);
+        col = mix(fogColor, col, vAppear);
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.frustumCulled = false;
+  return { mesh, mat };
+}
+const lanterns = makeLanterns();
+scene.add(lanterns.mesh);
+
+/* ---------------- floating water candles ---------------- */
+const CANDLE_COUNT = 240;
+function makeCandles() {
+  const base = new THREE.CylinderGeometry(0.11, 0.13, 0.16, 8);
+  const geo = new THREE.InstancedBufferGeometry();
+  geo.index = base.index;
+  geo.attributes.position = base.attributes.position;
+  geo.attributes.normal = base.attributes.normal;
+  geo.attributes.uv = base.attributes.uv;
+  geo.instanceCount = CANDLE_COUNT;
+
+  const offset = new Float32Array(CANDLE_COUNT * 3);
+  const phase = new Float32Array(CANDLE_COUNT);
+  const hue = new Float32Array(CANDLE_COUNT);
+  for (let i = 0; i < CANDLE_COUNT; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const rad = 2.5 + 15 * Math.sqrt(Math.random());
+    offset[i * 3] = Math.cos(ang) * rad;
+    offset[i * 3 + 1] = 0.1;
+    offset[i * 3 + 2] = Math.sin(ang) * rad;
+    phase[i] = Math.random() * Math.PI * 2;
+    hue[i] = Math.random() * 0.7; // bias warm
+  }
+  geo.setAttribute("iOffset", new THREE.InstancedBufferAttribute(offset, 3));
+  geo.setAttribute("iPhase", new THREE.InstancedBufferAttribute(phase, 1));
+  geo.setAttribute("iHue", new THREE.InstancedBufferAttribute(hue, 1));
+
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      time: { value: 0 },
+      fogColor: { value: FOG_COLOR.clone() },
+      fogDensity: { value: FOG_DENSITY },
+    },
+    vertexShader: /* glsl */ `
+      uniform float time;
+      attribute vec3 iOffset;
+      attribute float iPhase;
+      attribute float iHue;
+      varying float vHue;
+      varying float vFlick;
+      varying float vDepth;
+      varying float vLocalY;
+      void main() {
+        vHue = iHue;
+        vLocalY = position.y;
+        vec3 world = iOffset;
+        world.x += sin(time * 0.14 + iPhase) * 0.5;
+        world.z += cos(time * 0.11 + iPhase * 1.7) * 0.5;
+        world.y += sin(time * 0.9 + iPhase * 3.0) * 0.02;
+        vFlick = 0.8 + 0.2 * sin(time * 7.0 + iPhase * 13.0) * sin(time * 11.3 + iPhase * 5.0);
+        vec4 mv = modelViewMatrix * vec4(position + world, 1.0);
+        vDepth = -mv.z;
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 fogColor;
+      uniform float fogDensity;
+      varying float vHue;
+      varying float vFlick;
+      varying float vDepth;
+      varying float vLocalY;
+      void main() {
+        vec3 warmA = vec3(1.00, 0.55, 0.14);
+        vec3 warmB = vec3(1.00, 0.34, 0.18);
+        vec3 base = mix(warmA, warmB, vHue);
+        float g = mix(1.1, 2.4, smoothstep(-0.08, 0.08, vLocalY)); // top glows
+        vec3 col = base * g * vFlick * 1.05;
+        float fogF = 1.0 - exp(-fogDensity * fogDensity * vDepth * vDepth);
+        col = mix(col, fogColor, fogF);
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.frustumCulled = false;
+  return { mesh, mat };
+}
+const candles = makeCandles();
+scene.add(candles.mesh);
+
+/* ---------------- embers ---------------- */
+function makeEmbers(count) {
+  const pos = new Float32Array(count * 3);
+  const phase = new Float32Array(count);
+  const speed = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    pos[i * 3] = (Math.random() - 0.5) * 34;
+    pos[i * 3 + 1] = Math.random() * 5;
+    pos[i * 3 + 2] = (Math.random() - 0.5) * 34;
+    phase[i] = Math.random() * Math.PI * 2;
+    speed[i] = 0.1 + Math.random() * 0.3;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("aPhase", new THREE.BufferAttribute(phase, 1));
+  geo.setAttribute("aSpeed", new THREE.BufferAttribute(speed, 1));
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: { time: { value: 0 } },
+    vertexShader: /* glsl */ `
+      uniform float time;
+      attribute float aPhase;
+      attribute float aSpeed;
+      varying float vA;
+      void main() {
+        vec3 p = position;
+        p.y = mod(position.y + time * aSpeed, 5.0);
+        p.x += sin(time * 0.5 + aPhase) * 0.6;
+        p.z += cos(time * 0.4 + aPhase * 1.3) * 0.6;
+        vA = 0.4 + 0.6 * sin(time * 2.0 + aPhase * 7.0);
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = min(3.2 * (60.0 / -mv.z), 18.0);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying float vA;
+      void main() {
+        vec2 c = gl_PointCoord - 0.5;
+        float a = smoothstep(0.5, 0.0, length(c));
+        gl_FragColor = vec4(vec3(1.0, 0.62, 0.25), a * a * max(vA, 0.0) * 0.7);
+      }
+    `,
+  });
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false;
+  return { pts, mat };
+}
+const embers = makeEmbers(320);
+embers.pts.layers.set(1);
+scene.add(embers.pts);
+
+/* ---------------- water (planar reflection + shader distortion) ---------------- */
+const waterShader = {
+  name: "LanternWater",
+  uniforms: {
+    color: { value: null },
+    tDiffuse: { value: null },
+    textureMatrix: { value: null },
+    time: { value: 0 },
+  },
+  vertexShader: /* glsl */ `
+    uniform mat4 textureMatrix;
+    varying vec4 vUvP;
+    varying vec3 vWorld;
+    void main() {
+      vUvP = textureMatrix * vec4(position, 1.0);
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vWorld = wp.xyz;
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }
+  `,
+  fragmentShader: /* glsl */ `
+    uniform vec3 color;
+    uniform sampler2D tDiffuse;
+    uniform float time;
+    varying vec4 vUvP;
+    varying vec3 vWorld;
+    float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+    float noise(vec2 p) {
+      vec2 i = floor(p), f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+                 mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+    }
+    void main() {
+      vec2 wuv = vWorld.xz;
+      float n1 = noise(wuv * 0.9 + vec2(time * 0.20, time * 0.15));
+      float n2 = noise(wuv * 2.6 + vec2(-time * 0.28, time * 0.22));
+      float n3 = noise(wuv * 6.5 + vec2(time * 0.42, -time * 0.36));
+      vec2 distort = (vec2(n1 + n3 * 0.5, n2 + n3 * 0.5) - 0.75);
+      vec4 uv = vUvP;
+      uv.xy += distort * vec2(0.018, 0.05) * uv.w;
+      vec3 refl = texture2DProj(tDiffuse, uv).rgb;
+      vec3 col = color + refl * 0.45;
+      float glint = pow(noise(wuv * 9.0 + vec2(time * 0.7, -time * 0.55)), 7.0);
+      col += vec3(1.0, 0.68, 0.38) * glint * 0.28;
+      float d = length(vWorld - cameraPosition);
+      float fogF = 1.0 - exp(-0.016 * 0.016 * d * d);
+      col = mix(col, vec3(0.070, 0.043, 0.149), fogF);
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+};
+const water = new Reflector(new THREE.PlaneGeometry(400, 400), {
+  clipBias: 0.05,
+  textureWidth: 512,
+  textureHeight: 512,
+  color: new THREE.Color(0x0a0620),
+  shader: waterShader,
+});
+water.rotation.x = -Math.PI / 2;
+water.position.y = 0;
+scene.add(water);
+
+/* ---------------- lights ---------------- */
+scene.add(new THREE.AmbientLight(0x2a2140, 1.1));
+const moon = new THREE.DirectionalLight(0x8899ff, 0.4);
+moon.position.set(-30, 42, -24);
+scene.add(moon);
+
+/* ---------------- boat ---------------- */
+function makeBoat() {
+  const g = new THREE.Group();
+
+  const shape = new THREE.Shape();
+  shape.moveTo(-2.4, 0);
+  shape.quadraticCurveTo(0, 0.95, 2.4, 0);
+  shape.quadraticCurveTo(0, -0.95, -2.4, 0);
+  const hullGeo = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.55,
+    bevelEnabled: true,
+    bevelThickness: 0.06,
+    bevelSize: 0.05,
+    bevelSegments: 2,
+    curveSegments: 24,
+  });
+  // curl the bow / stern upward (z is "up" pre-rotation)
+  const pos = hullGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    pos.setZ(i, pos.getZ(i) + Math.pow(Math.abs(x) / 2.4, 3.0) * 0.5);
+  }
+  hullGeo.computeVertexNormals();
+  const hull = new THREE.Mesh(
+    hullGeo,
+    new THREE.MeshStandardMaterial({ color: 0x3a1620, roughness: 0.85, metalness: 0.05 })
+  );
+  hull.rotation.x = -Math.PI / 2;
+  g.add(hull);
+
+  // lantern pole at stern
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.025, 0.03, 0.95, 6),
+    new THREE.MeshStandardMaterial({ color: 0x241018, roughness: 0.9 })
+  );
+  pole.position.set(1.85, 0.95, 0);
+  g.add(pole);
+
+  const boatLantern = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.13, 0.1, 0.26, 8, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xffc06a, side: THREE.DoubleSide })
+  );
+  boatLantern.position.set(1.85, 1.28, 0);
+  g.add(boatLantern);
+
+  const boatLight = new THREE.PointLight(0xffa04d, 2.5, 10, 2);
+  boatLight.position.set(1.85, 1.3, 0);
+  g.add(boatLight);
+
+  // one lantern resting on the water beside the boat
+  const restLantern = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.2, 0.15, 0.42, 10, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xffd27a, side: THREE.DoubleSide })
+  );
+  restLantern.position.set(-1.4, 0.25, 1.0);
+  g.add(restLantern);
+  const restLight = new THREE.PointLight(0xffb45e, 2.2, 6, 2);
+  restLight.position.set(-1.4, 0.35, 1.0);
+  g.add(restLight);
+
+  g.position.set(2, 0.1, 5.5);
+  g.rotation.y = 0.5;
+  return g;
+}
+const boat = makeBoat();
+scene.add(boat);
+
+/* ---------------- lighthouse ---------------- */
+function makeLighthouse() {
+  const g = new THREE.Group();
+  const stone = new THREE.MeshStandardMaterial({ color: 0x35304a, roughness: 0.95 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1c1730, roughness: 0.95 });
+
+  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.9, 1), dark);
+  rock.scale.set(1.35, 0.55, 1.35);
+  rock.position.y = 0.25;
+  g.add(rock);
+
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.92, 3.4, 12), stone);
+  tower.position.y = 2.2;
+  g.add(tower);
+
+  const gallery = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.22, 12), dark);
+  gallery.position.y = 4.0;
+  g.add(gallery);
+
+  const lamp = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.45, 0.45, 0.62, 10, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xffd9a0, side: THREE.DoubleSide })
+  );
+  lamp.position.y = 4.45;
+  g.add(lamp);
+
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.7, 10), dark);
+  roof.position.y = 5.1;
+  g.add(roof);
+
+  const light = new THREE.PointLight(0xffd9a0, 2.5, 26, 2);
+  light.position.y = 4.5;
+  g.add(light);
+
+  // rotating beam
+  const beamGroup = new THREE.Group();
+  beamGroup.position.y = 4.45;
+  const beam = new THREE.Mesh(
+    new THREE.ConeGeometry(2.6, 13, 20, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: 0xffd9a0,
+      transparent: true,
+      opacity: 0.055,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+  );
+  beam.rotation.z = Math.PI / 2;
+  beam.position.x = 6.5;
+  beamGroup.add(beam);
+  g.add(beamGroup);
+  g.userData.beamGroup = beamGroup;
+
+  g.position.set(9, 0, -7);
+  return g;
+}
+const lighthouse = makeLighthouse();
+scene.add(lighthouse);
+
+/* ---------------- framing rocks ---------------- */
+const rockMat = new THREE.MeshStandardMaterial({ color: 0x171028, roughness: 1 });
+[
+  [-13, 0.1, 9, 2.6], [-16, 0.2, -2, 3.4], [14, 0.1, 11, 2.2],
+  [16, 0.3, -1, 3.8], [-11, 0.05, -12, 2.8], [12, 0.1, -14, 2.4],
+].forEach(([x, y, z, s]) => {
+  const r = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 1), rockMat);
+  r.position.set(x, y, z);
+  r.scale.set(s, s * 0.45, s);
+  r.rotation.y = Math.random() * Math.PI;
+  scene.add(r);
+});
+
+/* ---------------- post ---------------- */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.45, 0.7, 0.8
+);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+/* ---------------- camera path (scroll-driven) ---------------- */
+const posCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(0, 8.5, 24),
+  new THREE.Vector3(-7, 4.6, 15),
+  new THREE.Vector3(-3, 2.0, 8.5),
+  new THREE.Vector3(6.8, 2.2, 1.8),
+  new THREE.Vector3(2, 3.2, -3),
+  new THREE.Vector3(-5, 4.5, -9),
+  new THREE.Vector3(0, 13, -23),
+], false, "centripetal");
+const tgtCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(0, 5.0, 2),
+  new THREE.Vector3(0, 3.5, 4),
+  new THREE.Vector3(2, 1.2, 5.5),
+  new THREE.Vector3(2, 1.0, 5.5),
+  new THREE.Vector3(9, 3.4, -7),
+  new THREE.Vector3(9, 4.2, -7),
+  new THREE.Vector3(0, 5.0, 4),
+], false, "centripetal");
+
+let progress = 0;
+let progressTarget = 0;
+let mouseX = 0, mouseY = 0;
+let mouseLX = 0, mouseLY = 0;
+
+window.addEventListener("scroll", () => {
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  progressTarget = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+}, { passive: true });
+
+window.addEventListener("mousemove", (e) => {
+  mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+  mouseY = (e.clientY / window.innerHeight) * 2 - 1;
+});
+
+/* ---------------- DOM: sections, rail, badge ---------------- */
+const sections = [
+  { el: document.getElementById("s-hero"), center: 0.0, width: 0.11 },
+  { el: document.getElementById("s-release"), center: 0.26, width: 0.1 },
+  { el: document.getElementById("s-water"), center: 0.5, width: 0.1 },
+  { el: document.getElementById("s-keeper"), center: 0.74, width: 0.1 },
+  { el: document.getElementById("s-cta"), center: 0.985, width: 0.11 },
+];
+const railDot = document.getElementById("rail-dot");
+const railIdx = document.getElementById("rail-idx");
+const badge = document.getElementById("scroll-badge");
+
+function updateDom(p) {
+  let active = 0, best = 1e9;
+  for (let i = 0; i < sections.length; i++) {
+    const s = sections[i];
+    const d = Math.abs(p - s.center);
+    const vis = 1 - Math.min(1, Math.max(0, (d - s.width) / 0.07));
+    s.el.style.opacity = vis.toFixed(3);
+    s.el.style.visibility = vis > 0.01 ? "visible" : "hidden";
+    const drift = (p - s.center) * -140;
+    s.el.style.transform = `translateY(${drift.toFixed(1)}px)`;
+    if (d < best) { best = d; active = i; }
+  }
+  railDot.style.top = `${(p * 100).toFixed(2)}%`;
+  railIdx.textContent = `0${active + 1} / 05`;
+  badge.classList.toggle("hide", p > 0.04);
+}
+
+/* ---------------- render loop ---------------- */
+const clock = new THREE.Clock();
+const camPos = new THREE.Vector3();
+const camTgt = new THREE.Vector3();
+let firstFrame = false;
+let fpsCount = 0, fpsLast = performance.now();
+
+function tick() {
+  requestAnimationFrame(tick);
+  if (window.__pause) return;
+  fpsCount++;
+  const now = performance.now();
+  if (now - fpsLast >= 1000) {
+    window.__fps = Math.round((fpsCount * 1000) / (now - fpsLast));
+    document.title = `LANTERRA — ${window.__fps}fps`;
+    fpsCount = 0;
+    fpsLast = now;
+  }
+  const t = clock.getElapsedTime();
+  const dt = Math.min(clock.getDelta ? 0.016 : 0.016, 0.05); // fixed-ish smoothing step
+
+  // smooth scroll + parallax
+  progress += (progressTarget - progress) * 0.06;
+  if (window.__freezeAt !== undefined) progress = progressTarget = window.__freezeAt;
+  mouseLX += (mouseX - mouseLX) * 0.05;
+  mouseLY += (mouseY - mouseLY) * 0.05;
+
+  const p = Math.min(1, Math.max(0, progress));
+  posCurve.getPoint(p, camPos);
+  tgtCurve.getPoint(p, camTgt);
+  camera.position.copy(camPos);
+  camera.position.x += mouseLX * 0.9;
+  camera.position.y += -mouseLY * 0.55;
+  camera.lookAt(camTgt);
+
+  // uniforms
+  skyMat.uniforms.time.value = t;
+  stars.mat.uniforms.time.value = t;
+  lanterns.mat.uniforms.time.value = t;
+  candles.mat.uniforms.time.value = t;
+  embers.mat.uniforms.time.value = t;
+  if (water.material.uniforms.time) water.material.uniforms.time.value = t;
+
+  // boat bob
+  boat.position.y = 0.1 + Math.sin(t * 0.8) * 0.05;
+  boat.rotation.z = Math.sin(t * 0.6) * 0.02;
+  boat.rotation.x = Math.sin(t * 0.5 + 1.2) * 0.015;
+
+  // lighthouse beam sweep
+  lighthouse.userData.beamGroup.rotation.y = t * 0.22;
+
+  updateDom(p);
+  composer.render();
+
+  if (window.__freezeAt !== undefined) {
+    window.__pause = true;
+    window.__freezeAt = undefined;
+  }
+  if (!firstFrame) { firstFrame = true; window.__firstFrame = true; }
+}
+tick();
+
+/* ---------------- resize ---------------- */
+window.addEventListener("resize", () => {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+});
+
+/* ============================================================
+   UI layer
+   ============================================================ */
+
+/* preloader */
+const plCount = document.getElementById("pl-count");
+const plBar = document.getElementById("pl-bar");
+let plValue = 0;
+const plStart = performance.now();
+function plTick() {
+  const elapsed = performance.now() - plStart;
+  plValue += (100 - plValue) * 0.045 + 0.25;
+  if (plValue >= 100 || (elapsed > 1500 && window.__firstFrame)) plValue = Math.min(plValue, 100);
+  const shown = Math.min(100, Math.floor(plValue));
+  plCount.textContent = String(shown).padStart(2, "0");
+  plBar.style.transform = `scaleX(${(shown / 100).toFixed(3)})`;
+  if (shown >= 100 && elapsed > 1400 && window.__firstFrame) {
+    document.body.classList.add("ready");
+    return;
+  }
+  requestAnimationFrame(plTick);
+}
+plTick();
+// hard fallback: never trap the user on the loader
+setTimeout(() => document.body.classList.add("ready"), 6000);
+
+/* custom cursor */
+const dot = document.getElementById("cursor-dot");
+const ring = document.getElementById("cursor-ring");
+let cx = -100, cy = -100, rx = -100, ry = -100;
+window.addEventListener("mousemove", (e) => { cx = e.clientX; cy = e.clientY; });
+(function cursorTick() {
+  requestAnimationFrame(cursorTick);
+  rx += (cx - rx) * 0.16;
+  ry += (cy - ry) * 0.16;
+  dot.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`;
+  ring.style.transform = `translate(${rx}px, ${ry}px) translate(-50%, -50%)`;
+})();
+document.querySelectorAll("a, button").forEach((el) => {
+  el.addEventListener("mouseenter", () => document.body.classList.add("cursor-hover"));
+  el.addEventListener("mouseleave", () => document.body.classList.remove("cursor-hover"));
+});
+
+/* scramble hover on nav links */
+const GLYPHS = "!<>-_\\/[]{}—=+*^?#";
+document.querySelectorAll("[data-scramble]").forEach((el) => {
+  const original = el.textContent;
+  let frame = 0, raf = null;
+  el.addEventListener("mouseenter", () => {
+    cancelAnimationFrame(raf);
+    frame = 0;
+    const total = original.length * 3;
+    (function scram() {
+      frame++;
+      const reveal = Math.floor((frame / total) * original.length);
+      let out = "";
+      for (let i = 0; i < original.length; i++) {
+        out += i < reveal
+          ? original[i]
+          : GLYPHS[(Math.random() * GLYPHS.length) | 0];
+      }
+      el.textContent = out;
+      if (frame < total) raf = requestAnimationFrame(scram);
+      else el.textContent = original;
+    })();
+  });
+});
+
+/* webgl context loss: reload gracefully */
+canvas.addEventListener("webglcontextlost", (e) => {
+  e.preventDefault();
+  location.reload();
+});
+</script>
+
+<noscript>
+  <div style="position:fixed;inset:0;background:#070310;color:#f2e6d5;display:flex;align-items:center;justify-content:center;font-family:serif;font-size:1.2rem;z-index:99;">
+    Lanterra needs JavaScript &mdash; the lanterns won't rise without it.
+  </div>
+</noscript>
+</body>
+</html>
