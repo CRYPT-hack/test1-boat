@@ -277,7 +277,7 @@
     a, button { cursor: none; }
   }
 
-  .scroll-space { position: relative; z-index: -1; height: 900vh; }
+  .scroll-space { position: relative; z-index: -1; height: 1300vh; }
 
   @media (max-width: 720px) {
     nav.ui { padding: 1.2rem 1.3rem; }
@@ -925,7 +925,6 @@ scene.add(boat);
 /* ---------------- lighthouse ---------------- */
 function makeLighthouse() {
   const g = new THREE.Group();
-  const stone = new THREE.MeshStandardMaterial({ color: 0x35304a, roughness: 0.95 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x1c1730, roughness: 0.95 });
 
   const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.9, 1), dark);
@@ -933,9 +932,58 @@ function makeLighthouse() {
   rock.position.y = 0.25;
   g.add(rock);
 
-  const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.92, 3.4, 12), stone);
-  tower.position.y = 2.2;
-  g.add(tower);
+  // brick tower — instanced boxes in tapered courses, igloo-style pop bricks
+  const COURSE_H = 0.24;
+  const COURSES = 14;
+  const bricks = [];
+  for (let c = 0; c < COURSES; c++) {
+    const tC = c / (COURSES - 1);
+    const r = 0.92 - (0.92 - 0.62) * tC;
+    const y = 0.55 + c * COURSE_H;
+    const count = Math.max(10, Math.round((Math.PI * 2 * r) / 0.3));
+    for (let i = 0; i < count; i++) {
+      const theta = (i / count) * Math.PI * 2 + (c % 2) * (Math.PI / count);
+      bricks.push({ theta, r, y, w: ((Math.PI * 2 * r) / count) * 0.97 });
+    }
+  }
+  const brickGeo = new THREE.BoxGeometry(1, COURSE_H * 0.94, 0.18);
+  const brickMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0.04 });
+  // instance color doubles as a soft emissive term: popped bricks self-glow warm
+  brickMat.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "#include <emissivemap_fragment>",
+      `#include <emissivemap_fragment>
+      #ifdef USE_INSTANCING_COLOR
+        totalEmissiveRadiance += vColor * vColor * 0.5;
+      #endif`
+    );
+  };
+  const brickMesh = new THREE.InstancedMesh(brickGeo, brickMat, bricks.length);
+  brickMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  const stoneBase = new THREE.Color(0x3d3757);
+  const baseColors = [];
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < bricks.length; i++) {
+    const b = bricks[i];
+    dummy.position.set(Math.cos(b.theta) * b.r, b.y, Math.sin(b.theta) * b.r);
+    dummy.rotation.set(0, Math.PI / 2 - b.theta, 0);
+    dummy.scale.set(b.w, 1, 1);
+    dummy.updateMatrix();
+    brickMesh.setMatrixAt(i, dummy.matrix);
+    const c0 = stoneBase.clone().multiplyScalar(0.94 + Math.random() * 0.12);
+    baseColors.push(c0);
+    brickMesh.setColorAt(i, c0);
+  }
+  brickMesh.instanceColor.needsUpdate = true;
+  g.add(brickMesh);
+  g.userData.bricks = {
+    mesh: brickMesh,
+    data: bricks,
+    baseColors,
+    popCur: new Float32Array(bricks.length),
+    popTarget: new Float32Array(bricks.length),
+    dummy,
+  };
 
   const gallery = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.22, 12), dark);
   gallery.position.y = 4.0;
@@ -1006,6 +1054,8 @@ function makeLighthouse() {
 }
 const lighthouse = makeLighthouse();
 scene.add(lighthouse);
+window.__lh = lighthouse; // debug handle
+window.__cam = camera;    // debug handle
 
 /* ---------------- framing rocks ---------------- */
 const rockMat = new THREE.MeshStandardMaterial({ color: 0x171028, roughness: 1 });
@@ -1067,9 +1117,12 @@ window.addEventListener("scroll", () => {
   progressTarget = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
 }, { passive: true });
 
+const raycaster = new THREE.Raycaster();
+const pointerNdc = new THREE.Vector2(-2, -2); // offscreen until first move
 window.addEventListener("mousemove", (e) => {
   mouseX = (e.clientX / window.innerWidth) * 2 - 1;
   mouseY = (e.clientY / window.innerHeight) * 2 - 1;
+  pointerNdc.set(mouseX, -mouseY);
 });
 
 /* ---------------- DOM: sections, rail, badge ---------------- */
@@ -1105,12 +1158,64 @@ function updateDom(p) {
 const clock = new THREE.Clock();
 const camPos = new THREE.Vector3();
 const camTgt = new THREE.Vector3();
+const smooth01 = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+const _brickColor = new THREE.Color();
+const _brickGlow = new THREE.Color(1.35, 1.02, 0.6); // gentle warm, stays under bloom threshold
+
+function updateBricks(p) {
+  const bk = lighthouse.userData.bricks;
+  const L = bk.data.length;
+  // wave that travels around the tower as the camera orbits it
+  const camAz = Math.atan2(
+    camera.position.z - lighthouse.position.z,
+    camera.position.x - lighthouse.position.x
+  );
+  const band = smooth01((p - 0.18) / 0.1) * (1 - smooth01((p - 0.58) / 0.1));
+  window.__dbgP = p; window.__dbgBand = band;
+  for (let i = 0; i < L; i++) {
+    const d = Math.atan2(Math.sin(bk.data[i].theta - camAz), Math.cos(bk.data[i].theta - camAz));
+    bk.popTarget[i] = Math.pow(Math.max(Math.cos(d * 1.5), 0.0), 3.0) * band * 0.5;
+  }
+  // hover pop with neighbor falloff
+  raycaster.setFromCamera(pointerNdc, camera);
+  const hits = raycaster.intersectObject(bk.mesh);
+  if (hits.length) {
+    const hb = bk.data[hits[0].instanceId];
+    for (let i = 0; i < L; i++) {
+      const b = bk.data[i];
+      const dy = b.y - hb.y;
+      const da = Math.atan2(Math.sin(b.theta - hb.theta), Math.cos(b.theta - hb.theta)) * b.r;
+      const h = Math.max(0, 1 - Math.sqrt(dy * dy + da * da) / 0.55);
+      if (h > bk.popTarget[i]) bk.popTarget[i] = h;
+    }
+  }
+  for (let i = 0; i < L; i++) {
+    bk.popCur[i] += (bk.popTarget[i] - bk.popCur[i]) * 0.14;
+    const b = bk.data[i];
+    const pop = bk.popCur[i];
+    bk.dummy.position.set(
+      Math.cos(b.theta) * (b.r + pop * 0.22), b.y, Math.sin(b.theta) * (b.r + pop * 0.22)
+    );
+    bk.dummy.rotation.set(0, Math.PI / 2 - b.theta, 0);
+    bk.dummy.scale.set(b.w, 1, 1);
+    bk.dummy.updateMatrix();
+    bk.mesh.setMatrixAt(i, bk.dummy.matrix);
+    _brickColor.copy(bk.baseColors[i]).lerp(_brickGlow, Math.min(1, pop) * 0.8);
+    bk.mesh.setColorAt(i, _brickColor);
+  }
+  bk.mesh.instanceMatrix.needsUpdate = true;
+  bk.mesh.instanceColor.needsUpdate = true;
+}
 let firstFrame = false;
 let fpsCount = 0, fpsLast = performance.now();
 
 function tick() {
   requestAnimationFrame(tick);
   if (window.__pause) return;
+  frame();
+}
+window.__frame = () => frame(); // manual stepper (debug)
+function frame() {
   fpsCount++;
   const now = performance.now();
   if (now - fpsLast >= 1000) {
@@ -1123,7 +1228,7 @@ function tick() {
   const dt = Math.min(clock.getDelta ? 0.016 : 0.016, 0.05); // fixed-ish smoothing step
 
   // smooth scroll + parallax
-  progress += (progressTarget - progress) * 0.045;
+  progress += (progressTarget - progress) * 0.035;
   if (window.__freezeAt !== undefined) progress = progressTarget = window.__freezeAt;
   mouseLX += (mouseX - mouseLX) * 0.05;
   mouseLY += (mouseY - mouseLY) * 0.05;
@@ -1151,6 +1256,9 @@ function tick() {
 
   // lighthouse beam sweep
   lighthouse.userData.beamGroup.rotation.y = t * 0.22;
+
+  // brick pop: hover + orbit sweep
+  updateBricks(p);
 
   updateDom(p);
   composer.render();
