@@ -279,6 +279,16 @@
 
   .scroll-space { position: relative; z-index: -1; height: 1300vh; }
 
+  /* nothing overlays the cake while it is being cut */
+  body.cutting .sections,
+  body.cutting nav.ui,
+  body.cutting .rail,
+  body.cutting .scroll-badge {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+  }
+
   @media (max-width: 720px) {
     nav.ui { padding: 1.2rem 1.3rem; }
     .nav-links { gap: 1.1rem; }
@@ -316,7 +326,7 @@
 </nav>
 
 <div class="ui rail">
-  <div class="rail-idx" id="rail-idx">01 / 05</div>
+  <div class="rail-idx" id="rail-idx">01 / 02</div>
   <div class="rail-track"><div class="rail-dot" id="rail-dot"></div></div>
 </div>
 
@@ -339,30 +349,7 @@
     <div class="hero-sub">A night of ten thousand lights</div>
   </section>
 
-  <section class="section" id="s-release">
-    <div class="kicker">01 &mdash; The Release</div>
-    <h2>The water vanishes beneath a field of <em>rising fire</em></h2>
-    <p>At the first dark hour, every hand lets go at once. Paper, flame, and a
-    wish written small — ten thousand of them, climbing the same quiet sky.</p>
-  </section>
-
-  <section class="section right" id="s-water">
-    <div class="kicker">03 &mdash; Across the Water</div>
-    <h2>A single boat drifts the <em>center line</em></h2>
-    <p>No oar, no hurry. Guided only by current and candlelight, it carries
-    the one lantern that never leaves the water.</p>
-  </section>
-
-  <section class="section" id="s-keeper">
-    <div class="kicker">02 &mdash; The Keeper's Light</div>
-    <h2>One steady flame against ten thousand <em>wandering ones</em></h2>
-    <p>The old lighthouse answers from the far shore — patient, fixed,
-    unblinking — while the sky above it slowly fills with drifting stars.</p>
-  </section>
-
   <section class="section" id="s-cta">
-    <div class="kicker">04 &mdash; The Next Release</div>
-    <h2>Your light is <em>waiting</em></h2>
     <a class="cta-btn" href="#" id="cta"><span>Reserve a lantern</span> &#8594;</a>
     <div class="cta-foot">
       <span>Lanterra &copy; 2026</span>
@@ -476,7 +463,7 @@ const skyMat = new THREE.ShaderMaterial({
     }
   `,
 });
-const sky = new THREE.Mesh(new THREE.SphereGeometry(420, 32, 20), skyMat);
+const sky = new THREE.Mesh(new THREE.SphereGeometry(420, 64, 40), skyMat);
 scene.add(sky);
 
 /* ---------------- stars ---------------- */
@@ -537,7 +524,7 @@ scene.add(stars.pts);
 /* ---------------- sky lanterns (instanced) ---------------- */
 const LANTERN_COUNT = 680;
 function makeLanterns() {
-  const base = new THREE.CylinderGeometry(0.34, 0.24, 0.95, 10, 1, true);
+  const base = new THREE.CylinderGeometry(0.34, 0.24, 0.95, 20, 1, true);
   const geo = new THREE.InstancedBufferGeometry();
   geo.index = base.index;
   geo.attributes.position = base.attributes.position;
@@ -654,7 +641,7 @@ scene.add(lanterns.mesh);
 /* ---------------- floating water candles ---------------- */
 const CANDLE_COUNT = 240;
 function makeCandles() {
-  const base = new THREE.CylinderGeometry(0.11, 0.13, 0.16, 8);
+  const base = new THREE.CylinderGeometry(0.11, 0.13, 0.16, 16);
   const geo = new THREE.InstancedBufferGeometry();
   geo.index = base.index;
   geo.attributes.position = base.attributes.position;
@@ -786,6 +773,383 @@ const embers = makeEmbers(320);
 embers.pts.layers.set(1);
 scene.add(embers.pts);
 
+/* ---------------- fireworks (cut-the-cake celebration, 15s) ----------------
+   Shell-based: rockets launch from the water, trail upward, then burst into
+   one of five patterns. Sparks cool from white-hot to their shell colour and
+   twinkle as they fall.                                                     */
+const FW_MAX = 11000;
+function makeFireworks() {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(FW_MAX * 3), 3));
+  geo.setAttribute("aColor", new THREE.BufferAttribute(new Float32Array(FW_MAX * 3), 3));
+  geo.setAttribute("aAlpha", new THREE.BufferAttribute(new Float32Array(FW_MAX), 1));
+  geo.setAttribute("aSize", new THREE.BufferAttribute(new Float32Array(FW_MAX), 1));
+  geo.setAttribute("aTwinkle", new THREE.BufferAttribute(new Float32Array(FW_MAX), 1));
+  geo.setDrawRange(0, 0);
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: { time: { value: 0 } },
+    vertexShader: /* glsl */ `
+      attribute vec3 aColor;
+      attribute float aAlpha;
+      attribute float aSize;
+      attribute float aTwinkle;
+      varying vec3 vC;
+      varying float vA;
+      void main() {
+        vC = aColor;
+        vA = aAlpha;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = clamp(aSize * (150.0 / -mv.z), 1.0, 14.0);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float time;
+      varying vec3 vC;
+      varying float vA;
+      void main() {
+        vec2 c = gl_PointCoord - 0.5;
+        float d = length(c);
+        // tight core + soft halo reads brighter than a single falloff
+        float core = smoothstep(0.22, 0.0, d);
+        float halo = smoothstep(0.5, 0.06, d);
+        float a = (halo * halo * 0.75 + core * 0.85) * vA;
+        gl_FragColor = vec4(vC, a);
+      }
+    `,
+  });
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false;
+  pts.visible = false;
+  // stays on layer 0 so the water mirrors the whole show
+
+  // motion streaks — one additive segment per spark, tail fading to nothing.
+  // This is what separates "fireworks" from "a cloud of dots".
+  const sGeo = new THREE.BufferGeometry();
+  sGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(FW_MAX * 6), 3));
+  sGeo.setAttribute("aColor", new THREE.BufferAttribute(new Float32Array(FW_MAX * 6), 3));
+  sGeo.setAttribute("aAlpha", new THREE.BufferAttribute(new Float32Array(FW_MAX * 2), 1));
+  sGeo.setDrawRange(0, 0);
+  const sMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: /* glsl */ `
+      attribute vec3 aColor;
+      attribute float aAlpha;
+      varying vec3 vC;
+      varying float vA;
+      void main() {
+        vC = aColor; vA = aAlpha;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying vec3 vC;
+      varying float vA;
+      void main() { gl_FragColor = vec4(vC, vA); }
+    `,
+  });
+  const streaks = new THREE.LineSegments(sGeo, sMat);
+  streaks.frustumCulled = false;
+  streaks.visible = false;
+
+  return {
+    pts, geo, mat, streaks, sGeo,
+    sparks: [], shells: [], pending: [],
+    activeUntil: -1, nextLaunch: 0,
+  };
+}
+const fireworks = makeFireworks();
+scene.add(fireworks.pts);
+scene.add(fireworks.streaks);
+
+const fwFlash = new THREE.PointLight(0xffd9a0, 0, 40, 2);
+fwFlash.visible = false;
+scene.add(fwFlash);
+
+const FW_PALETTE = [
+  [1.00, 0.66, 0.24], // gold
+  [1.00, 0.36, 0.48], // rose
+  [0.46, 0.68, 1.00], // ice blue
+  [0.72, 0.46, 1.00], // violet
+  [0.46, 1.00, 0.74], // mint
+  [1.00, 0.88, 0.52], // champagne
+];
+const FW_TYPES = ["peony", "willow", "ring", "chrysanthemum", "crackle"];
+
+function pushSpark(s) {
+  if (fireworks.sparks.length < FW_MAX) fireworks.sparks.push(s);
+}
+/* Shells are aimed at a point the camera is actually looking at, then launched
+   from the water directly beneath it — so the show always plays in frame,
+   whatever the camera is doing, and still rises off the lake like a real one. */
+const _fwFwd = new THREE.Vector3();
+const _fwRight = new THREE.Vector3();
+const _fwUp = new THREE.Vector3(0, 1, 0);
+function launchShell() {
+  camera.getWorldDirection(_fwFwd);
+  _fwFwd.y = 0;
+  if (_fwFwd.lengthSq() < 1e-4) _fwFwd.set(0, 0, -1);
+  _fwFwd.normalize();
+  _fwRight.crossVectors(_fwFwd, _fwUp).normalize();
+
+  const dist = 15 + Math.random() * 16;               // well behind the subject
+  const lateral = (Math.random() - 0.5) * 2 * dist * 0.55; // inside the frame
+  const burstY = 5.5 + Math.random() * 5.5;
+
+  const bx = camera.position.x + _fwFwd.x * dist + _fwRight.x * lateral;
+  const bz = camera.position.z + _fwFwd.z * dist + _fwRight.z * lateral;
+
+  const G = 4.6;
+  const rise = Math.max(1.5, burstY - 0.4);
+  const type = FW_TYPES[(Math.random() * FW_TYPES.length) | 0];
+  fireworks.shells.push({
+    x: bx + (Math.random() - 0.5) * 1.5, y: 0.4, z: bz + (Math.random() - 0.5) * 1.5,
+    vx: (Math.random() - 0.5) * 0.9,
+    vy: Math.sqrt(2 * G * rise),                       // apex lands on burstY
+    vz: (Math.random() - 0.5) * 0.9,
+    fuse: 6,                                           // apex detonates, not the fuse
+    age: 0,
+    type,
+    base: FW_PALETTE[(Math.random() * FW_PALETTE.length) | 0],
+    base2: FW_PALETTE[(Math.random() * FW_PALETTE.length) | 0],
+    dual: Math.random() < 0.4,
+    breaks: Math.random() < 0.3 ? 2 + ((Math.random() * 3) | 0) : 0, // multi-break shell
+    trailAcc: 0,
+  });
+}
+function explode(sh) {
+  const { x, y, z, type } = sh;
+  const tint = (base, jitter) => [
+    Math.min(1.6, base[0] * (1 - jitter + Math.random() * jitter * 2)),
+    Math.min(1.6, base[1] * (1 - jitter + Math.random() * jitter * 2)),
+    Math.min(1.6, base[2] * (1 - jitter + Math.random() * jitter * 2)),
+  ];
+  const emit = (n, cfg) => {
+    for (let i = 0; i < n; i++) {
+      // correct uniform-sphere sampling (cosine-corrected, no polar clumping)
+      const u = Math.random() * 2 - 1;
+      const ph = Math.random() * Math.PI * 2;
+      const sq = Math.sqrt(Math.max(0, 1 - u * u));
+      let dx = sq * Math.cos(ph), dy = u, dz = sq * Math.sin(ph);
+      if (cfg.ring) {
+        // flatten onto a randomly tilted disc
+        dy *= 0.09;
+        const n2 = Math.hypot(dx, dy, dz) || 1;
+        dx /= n2; dy /= n2; dz /= n2;
+        const tl = cfg.tilt;
+        const cy2 = Math.cos(tl), sy2 = Math.sin(tl);
+        const ny = dy * cy2 - dz * sy2, nz = dy * sy2 + dz * cy2;
+        dy = ny; dz = nz;
+      }
+      const sp = cfg.speed * (cfg.even ? 0.92 + Math.random() * 0.16 : 0.35 + Math.random() * 0.9);
+      const col = cfg.dual && Math.random() < 0.5 ? cfg.colB : cfg.colA;
+      const c = tint(col, 0.16);
+      pushSpark({
+        x, y, z,
+        vx: dx * sp, vy: dy * sp, vz: dz * sp,
+        life: cfg.life * (0.75 + Math.random() * 0.5),
+        age: 0,
+        r: c[0], g: c[1], b: c[2],
+        size: cfg.size * (0.7 + Math.random() * 0.6),
+        grav: cfg.grav,
+        drag: cfg.drag,
+        twinkle: cfg.twinkle ? 0.55 + Math.random() * 0.45 : 0,
+        tph: Math.random() * 6.283,
+        trail: cfg.trail,
+        trailAcc: 0,
+        streak: cfg.streak || 0,
+      });
+    }
+  };
+  const common = { colA: sh.base, colB: sh.base2, dual: sh.dual };
+  const S = sh.scale || 1;
+  if (type === "peony") {
+    emit(260 * S, { ...common, speed: 6.4 * S, life: 1.8, size: 3.4, grav: 3.0, drag: 0.62, even: true, twinkle: true, streak: 1.0 });
+    emit(60 * S, { ...common, speed: 2.4 * S, life: 2.2, size: 2.6, grav: 2.6, drag: 0.66, twinkle: true, streak: 0.7 });
+  } else if (type === "willow") {
+    emit(200 * S, { ...common, colA: [1.0, 0.74, 0.34], colB: [1.0, 0.62, 0.26], dual: false,
+      speed: 4.2 * S, life: 3.4, size: 3.4, grav: 4.6, drag: 0.5, even: true, twinkle: true, trail: 0.5, streak: 1.4 });
+  } else if (type === "ring") {
+    emit(190 * S, { ...common, speed: 5.9 * S, life: 2.0, size: 3.0, grav: 2.4, drag: 0.55,
+      even: true, ring: true, tilt: Math.random() * Math.PI, twinkle: true, streak: 1.1 });
+    emit(70 * S, { ...common, speed: 1.9 * S, life: 1.4, size: 2.6, grav: 2.4, drag: 0.7, streak: 0.6 });
+  } else if (type === "chrysanthemum") {
+    emit(230 * S, { ...common, speed: 5.6 * S, life: 2.5, size: 3.3, grav: 3.2, drag: 0.55, even: true, trail: 0.42, twinkle: true, streak: 1.3 });
+  } else {
+    // crackle — dense, fast, short, hard sparkle
+    emit(300 * S, { ...common, speed: 7.2 * S, life: 1.05, size: 2.5, grav: 2.6, drag: 0.78, twinkle: true, streak: 1.6 });
+  }
+  // multi-break shell: secondary bursts blossom out of the first
+  if (sh.breaks) {
+    for (let i = 0; i < sh.breaks; i++) {
+      const u = Math.random() * 2 - 1;
+      const ph = Math.random() * Math.PI * 2;
+      const sq = Math.sqrt(Math.max(0, 1 - u * u));
+      const r = 2.2 + Math.random() * 2.4;
+      fireworks.pending.push({
+        at: sh.bt + 0.42 + Math.random() * 0.5,
+        x: x + sq * Math.cos(ph) * r, y: y + u * r * 0.7, z: z + sq * Math.sin(ph) * r,
+        type: FW_TYPES[(Math.random() * FW_TYPES.length) | 0],
+        base: sh.base2, base2: sh.base, dual: false, breaks: 0, scale: 0.5,
+      });
+    }
+  }
+  // flash of light at the burst
+  fwFlash.position.set(x, y, z);
+  fwFlash.color.setRGB(sh.base[0], sh.base[1], sh.base[2]);
+  fwFlash.intensity = 26 * S;
+  fwFlash.visible = true;
+}
+
+function updateFireworks(t, dt) {
+  const fw = fireworks;
+  if (fw.activeUntil < 0) return;
+  fw.mat.uniforms.time.value = t;
+
+  if (t < fw.activeUntil && t >= fw.nextLaunch) {
+    launchShell();
+    if (Math.random() < 0.45) launchShell();
+    if (Math.random() < 0.15) launchShell();
+    // tighten the cadence toward the finale
+    const togo = fw.activeUntil - t;
+    fw.nextLaunch = t + (togo < 3.5 ? 0.14 + Math.random() * 0.16 : 0.42 + Math.random() * 0.46);
+  }
+
+  // shells: rise, trail, burst
+  let sw = 0;
+  for (let i = 0; i < fw.shells.length; i++) {
+    const sh = fw.shells[i];
+    sh.age += dt;
+    sh.vy -= 4.6 * dt;
+    sh.x += sh.vx * dt; sh.y += sh.vy * dt; sh.z += sh.vz * dt;
+    sh.trailAcc += dt;
+    while (sh.trailAcc > 0.012) {
+      sh.trailAcc -= 0.012;
+      pushSpark({
+        x: sh.x + (Math.random() - 0.5) * 0.1,
+        y: sh.y, z: sh.z + (Math.random() - 0.5) * 0.1,
+        vx: (Math.random() - 0.5) * 0.5, vy: -0.4 - Math.random() * 0.5, vz: (Math.random() - 0.5) * 0.5,
+        life: 0.42 + Math.random() * 0.28, age: 0,
+        r: 1.25, g: 0.72, b: 0.28,
+        size: 2.0, grav: 1.0, drag: 0.9, twinkle: 0, tph: 0, trail: 0, trailAcc: 0,
+      });
+    }
+    if (sh.age >= sh.fuse || sh.vy <= 0.4) { sh.bt = t; explode(sh); continue; }
+    fw.shells[sw++] = sh;
+  }
+  fw.shells.length = sw;
+
+  // secondary breaks that were scheduled by a multi-break shell
+  let pw = 0;
+  for (let i = 0; i < fw.pending.length; i++) {
+    const b = fw.pending[i];
+    if (t >= b.at) { b.bt = t; explode(b); continue; }
+    fw.pending[pw++] = b;
+  }
+  fw.pending.length = pw;
+
+  // flash decay
+  if (fwFlash.visible) {
+    fwFlash.intensity *= Math.pow(0.012, dt);
+    if (fwFlash.intensity < 0.05) { fwFlash.intensity = 0; fwFlash.visible = false; }
+  }
+
+  const pos = fw.geo.attributes.position.array;
+  const col = fw.geo.attributes.aColor.array;
+  const alp = fw.geo.attributes.aAlpha.array;
+  const siz = fw.geo.attributes.aSize.array;
+  const twk = fw.geo.attributes.aTwinkle.array;
+  const spos = fw.sGeo.attributes.position.array;
+  const scol = fw.sGeo.attributes.aColor.array;
+  const salp = fw.sGeo.attributes.aAlpha.array;
+  const born = [];
+  let w = 0, sw2 = 0;
+  for (let i = 0; i < fw.sparks.length; i++) {
+    const s = fw.sparks[i];
+    s.age += dt;
+    if (s.age >= s.life) continue;
+    s.vy -= s.grav * dt;
+    const d = Math.pow(s.drag, dt * 60);
+    s.vx *= d; s.vy *= d; s.vz *= d;
+    s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
+    // willow / chrysanthemum drip glowing trails behind them
+    if (s.trail) {
+      s.trailAcc += dt;
+      if (s.trailAcc > s.trail * 0.16) {
+        s.trailAcc = 0;
+        born.push({
+          x: s.x, y: s.y, z: s.z,
+          vx: s.vx * 0.12, vy: s.vy * 0.12 - 0.2, vz: s.vz * 0.12,
+          life: 0.4 + Math.random() * 0.3, age: 0,
+          r: s.r * 0.9, g: s.g * 0.78, b: s.b * 0.6,
+          size: s.size * 0.55, grav: 1.4, drag: 0.86,
+          twinkle: 0.8, tph: Math.random() * 6.283, trail: 0, trailAcc: 0,
+        });
+      }
+    }
+    const k = 1 - s.age / s.life;
+    // white-hot for the first instant, then cool into the shell colour
+    const hot = Math.max(0, 1 - s.age / 0.16);
+    let tw = 1;
+    if (s.twinkle) {
+      const f = 0.55 + 0.45 * Math.sin(t * 26 + s.tph);
+      tw = 1 - s.twinkle * (1 - f) * (1 - k * 0.4);
+    }
+    fw.sparks[w] = s;
+    pos[w * 3] = s.x; pos[w * 3 + 1] = s.y; pos[w * 3 + 2] = s.z;
+    col[w * 3] = s.r + (1.35 - s.r) * hot;
+    col[w * 3 + 1] = s.g + (1.25 - s.g) * hot;
+    col[w * 3 + 2] = s.b + (1.1 - s.b) * hot;
+    const a = Math.pow(k, 0.65) * tw;
+    const cr = col[w * 3], cg = col[w * 3 + 1], cb = col[w * 3 + 2];
+    alp[w] = a;
+    siz[w] = s.size * (0.42 + 0.58 * k) * (1 + hot * 0.5);
+    twk[w] = s.twinkle;
+    w++;
+    // motion streak: a segment trailing back along this spark's velocity
+    if (s.streak) {
+      const L = s.streak * 0.055;
+      const j = sw2 * 6;
+      spos[j] = s.x - s.vx * L; spos[j + 1] = s.y - s.vy * L; spos[j + 2] = s.z - s.vz * L;
+      spos[j + 3] = s.x; spos[j + 4] = s.y; spos[j + 5] = s.z;
+      scol[j] = cr; scol[j + 1] = cg; scol[j + 2] = cb;
+      scol[j + 3] = cr; scol[j + 4] = cg; scol[j + 5] = cb;
+      salp[sw2 * 2] = 0;              // tail fades out
+      salp[sw2 * 2 + 1] = a * 0.85;   // head is the bright end
+      sw2++;
+    }
+  }
+  fw.sparks.length = w;
+  for (let i = 0; i < born.length; i++) pushSpark(born[i]);
+
+  fw.geo.setDrawRange(0, w);
+  fw.geo.attributes.position.updateRanges = [{ start: 0, count: w * 3 }];
+  fw.geo.attributes.position.needsUpdate = true;
+  fw.geo.attributes.aColor.needsUpdate = true;
+  fw.geo.attributes.aAlpha.needsUpdate = true;
+  fw.geo.attributes.aSize.needsUpdate = true;
+  fw.geo.attributes.aTwinkle.needsUpdate = true;
+  fw.pts.visible = w > 0;
+
+  fw.sGeo.setDrawRange(0, sw2 * 2);
+  fw.sGeo.attributes.position.updateRanges = [{ start: 0, count: sw2 * 6 }];
+  fw.sGeo.attributes.position.needsUpdate = true;
+  fw.sGeo.attributes.aColor.needsUpdate = true;
+  fw.sGeo.attributes.aAlpha.needsUpdate = true;
+  fw.streaks.visible = sw2 > 0;
+
+  if (t >= fw.activeUntil && w === 0 && fw.shells.length === 0 && fw.pending.length === 0) {
+    fw.activeUntil = -1;
+    fw.pts.visible = false;
+    fw.streaks.visible = false;
+  }
+}
+
 /* ---------------- water (planar reflection + shader distortion) ---------------- */
 const waterShader = {
   name: "LanternWater",
@@ -855,6 +1219,69 @@ const moon = new THREE.DirectionalLight(0x8899ff, 0.4);
 moon.position.set(-30, 42, -24);
 scene.add(moon);
 
+/* ---------------- birthday cake top art (drawn procedurally) ---------------- */
+function makeCakeTexture() {
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 512;
+  const x = cv.getContext("2d");
+  x.fillStyle = "#cfe4ee";
+  x.fillRect(0, 0, 512, 512);
+  // arc lettering
+  x.fillStyle = "#fffdf6";
+  x.textAlign = "center";
+  x.textBaseline = "middle";
+  x.font = "600 42px 'Comic Sans MS', 'Segoe Print', cursive";
+  const msg = "HAPPY BIRTHDAY";
+  const ccx = 256, ccy = 300, arcR = 196;
+  const a0 = -Math.PI * 0.85, a1 = -Math.PI * 0.15;
+  for (let i = 0; i < msg.length; i++) {
+    const a = a0 + (i / (msg.length - 1)) * (a1 - a0);
+    x.save();
+    x.translate(ccx + Math.cos(a) * arcR, ccy + Math.sin(a) * arcR);
+    x.rotate(a + Math.PI / 2);
+    x.fillText(msg[i], 0, 0);
+    x.restore();
+  }
+  x.font = "600 38px 'Comic Sans MS', 'Segoe Print', cursive";
+  x.fillText("MY LOVE", 256, 168);
+  // little heart
+  x.beginPath();
+  x.arc(249, 208, 7, Math.PI, 0);
+  x.arc(263, 208, 7, Math.PI, 0);
+  x.lineTo(256, 224);
+  x.closePath();
+  x.fill();
+  // chibi pair — bodies, then heads pressed together
+  x.lineWidth = 8;
+  x.strokeStyle = "#332f2c";
+  x.fillStyle = "#fbfaf6";
+  x.lineJoin = "round";
+  x.lineCap = "round";
+  const rrect = (a, b, w, h, r) => { x.beginPath(); x.roundRect(a, b, w, h, r); x.fill(); x.stroke(); };
+  rrect(176, 320, 92, 118, 34);   // left body
+  rrect(282, 316, 88, 126, 32);   // right body
+  x.beginPath(); x.arc(232, 278, 64, 0, 7); x.fill(); x.stroke(); // left head
+  x.beginPath(); x.arc(322, 266, 58, 0, 7); x.fill(); x.stroke(); // right head, leaning in
+  // left face: squeezed-shut happy eyes + smile
+  x.lineWidth = 6;
+  x.beginPath(); x.moveTo(196, 266); x.lineTo(212, 274); x.lineTo(196, 282); x.stroke();
+  x.beginPath(); x.moveTo(252, 266); x.lineTo(236, 274); x.lineTo(252, 282); x.stroke();
+  x.beginPath(); x.arc(224, 298, 10, 0.15 * Math.PI, 0.85 * Math.PI); x.stroke();
+  // right face: closed eye, cheek pressed
+  x.beginPath(); x.arc(344, 260, 9, 0.15 * Math.PI, 0.9 * Math.PI); x.stroke();
+  // hugging arm
+  x.lineWidth = 8;
+  x.beginPath(); x.moveTo(288, 350); x.quadraticCurveTo(262, 364, 246, 350); x.stroke();
+  // blush
+  x.fillStyle = "rgba(214,170,190,0.55)";
+  x.beginPath(); x.arc(198, 298, 8, 0, 7); x.fill();
+  x.beginPath(); x.arc(352, 282, 8, 0, 7); x.fill();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
 /* ---------------- boat ---------------- */
 function makeBoat() {
   const g = new THREE.Group();
@@ -868,8 +1295,8 @@ function makeBoat() {
     bevelEnabled: true,
     bevelThickness: 0.06,
     bevelSize: 0.05,
-    bevelSegments: 2,
-    curveSegments: 24,
+    bevelSegments: 3,
+    curveSegments: 36,
   });
   // curl the bow / stern upward (z is "up" pre-rotation)
   const pos = hullGeo.attributes.position;
@@ -880,21 +1307,21 @@ function makeBoat() {
   hullGeo.computeVertexNormals();
   const hull = new THREE.Mesh(
     hullGeo,
-    new THREE.MeshStandardMaterial({ color: 0x3a1620, roughness: 0.85, metalness: 0.05 })
+    new THREE.MeshStandardMaterial({ color: 0x3a1620, roughness: 0.62, metalness: 0.05 })
   );
   hull.rotation.x = -Math.PI / 2;
   g.add(hull);
 
   // lantern pole at stern
   const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.025, 0.03, 0.95, 6),
+    new THREE.CylinderGeometry(0.025, 0.03, 0.95, 14),
     new THREE.MeshStandardMaterial({ color: 0x241018, roughness: 0.9 })
   );
   pole.position.set(1.85, 0.95, 0);
   g.add(pole);
 
   const boatLantern = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.13, 0.1, 0.26, 8, 1, true),
+    new THREE.CylinderGeometry(0.13, 0.1, 0.26, 18, 1, true),
     new THREE.MeshBasicMaterial({ color: 0xffc06a, side: THREE.DoubleSide })
   );
   boatLantern.position.set(1.85, 1.28, 0);
@@ -906,7 +1333,7 @@ function makeBoat() {
 
   // one lantern resting on the water beside the boat
   const restLantern = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.2, 0.15, 0.42, 10, 1, true),
+    new THREE.CylinderGeometry(0.2, 0.15, 0.42, 20, 1, true),
     new THREE.MeshBasicMaterial({ color: 0xffd27a, side: THREE.DoubleSide })
   );
   restLantern.position.set(-1.4, 0.25, 1.0);
@@ -914,6 +1341,127 @@ function makeBoat() {
   const restLight = new THREE.PointLight(0xffb45e, 2.2, 6, 2);
   restLight.position.set(-1.4, 0.35, 1.0);
   g.add(restLight);
+
+  // birthday cake amidships
+  const cake = new THREE.Group();
+  const R = 0.45;
+  const frosting = new THREE.MeshStandardMaterial({ color: 0xf8f4ec, roughness: 0.35 });
+  const blueIce = new THREE.MeshStandardMaterial({ color: 0xcfe4ee, roughness: 0.4 });
+  const cakeBody = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.02, 0.28, 96), frosting);
+  cakeBody.position.y = 0.14;
+  cake.add(cakeBody);
+  const icing = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.012, R + 0.012, 0.05, 96), blueIce);
+  icing.position.y = 0.295;
+  cake.add(icing);
+  const art = new THREE.Mesh(
+    new THREE.CircleGeometry(R + 0.006, 48),
+    new THREE.MeshStandardMaterial({ map: makeCakeTexture(), roughness: 0.45 })
+  );
+  art.rotation.x = -Math.PI / 2;
+  art.position.y = 0.323;
+  cake.add(art);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(R + 0.01, 0.022, 20, 96), frosting);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.318;
+  cake.add(rim);
+  // 20 candles round the circumference
+  const candleGeo = new THREE.CylinderGeometry(0.017, 0.017, 0.13, 20);
+  const flameGeo = new THREE.ConeGeometry(0.013, 0.04, 14);
+  const flameMat = new THREE.MeshBasicMaterial({ color: 0xffdf9a });
+  const pastelMats = [0xfff3c2, 0xffd9e2, 0xd9ecff, 0xe6f7d9].map(
+    (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 })
+  );
+  for (let i = 0; i < 20; i++) {
+    const a = (i / 20) * Math.PI * 2;
+    const cxr = Math.cos(a) * (R - 0.07), czr = Math.sin(a) * (R - 0.07);
+    const cd = new THREE.Mesh(candleGeo, pastelMats[i % 4]);
+    cd.position.set(cxr, 0.385, czr);
+    cake.add(cd);
+    const fl = new THREE.Mesh(flameGeo, flameMat);
+    fl.position.set(cxr, 0.47, czr);
+    cake.add(fl);
+  }
+  const cakeGlow = new THREE.PointLight(0xffc98a, 1.4, 3.2, 2);
+  cakeGlow.position.set(0, 0.9, 0);
+  cake.add(cakeGlow);
+  cake.position.set(0, 0.58, 0);
+  g.add(cake);
+  g.userData.flameMat = flameMat;
+
+  // knife resting on the deck beside the cake
+  const knife = new THREE.Group();
+  const bladeShape = new THREE.Shape();
+  bladeShape.moveTo(0, -0.028);
+  bladeShape.lineTo(0.34, -0.028);
+  bladeShape.quadraticCurveTo(0.46, -0.02, 0.5, 0.012);
+  bladeShape.lineTo(0, 0.03);
+  bladeShape.closePath();
+  const bladeMat = new THREE.MeshStandardMaterial({ color: 0xd9dde6, metalness: 0.9, roughness: 0.22 });
+  const blade = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(bladeShape, { depth: 0.012, bevelEnabled: false }),
+    bladeMat
+  );
+  blade.position.z = -0.006;
+  knife.add(blade);
+  const handle = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.026, 0.24, 22),
+    new THREE.MeshStandardMaterial({ color: 0x2a1b12, roughness: 0.55 })
+  );
+  handle.rotation.z = Math.PI / 2;
+  handle.position.set(-0.12, 0, 0);
+  knife.add(handle);
+  knife.position.set(-0.35, 0.62, 0.72);
+  knife.rotation.set(-Math.PI / 2, 0, 0.9);
+  g.add(knife);
+  g.userData.knife = knife;
+  g.userData.bladeMat = bladeMat;
+  knife.userData.restPos = knife.position.clone();
+  knife.userData.restRot = new THREE.Vector3(-Math.PI / 2, 0, 0.9);
+
+  // pre-built slice + cut marks, revealed when the cake is cut
+  const cut = new THREE.Group();
+  const wedgeShape = new THREE.Shape();
+  wedgeShape.moveTo(0, 0);
+  wedgeShape.absarc(0, 0, R - 0.01, -0.115, 0.115, false);
+  wedgeShape.closePath();
+  const spongeMat = new THREE.MeshStandardMaterial({
+    color: 0xf5e7c6, roughness: 0.5, polygonOffset: true, polygonOffsetFactor: -2,
+  });
+  const wedge = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(wedgeShape, { depth: 0.27, bevelEnabled: false, curveSegments: 28 }),
+    spongeMat
+  );
+  wedge.rotation.x = -Math.PI / 2;
+  const cap = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(wedgeShape, { depth: 0.022, bevelEnabled: false, curveSegments: 28 }),
+    new THREE.MeshStandardMaterial({
+      color: 0xcfe4ee, roughness: 0.4, polygonOffset: true, polygonOffsetFactor: -3,
+    })
+  );
+  cap.rotation.x = -Math.PI / 2;
+  cap.position.y = 0.27;
+  const slice = new THREE.Group();
+  slice.add(wedge);
+  slice.add(cap);
+  slice.visible = false;
+  const slitGeo = new THREE.BoxGeometry(R - 0.03, 0.006, 0.012);
+  const slitMat = new THREE.MeshStandardMaterial({
+    color: 0x8a7a66, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -3,
+  });
+  const slitL = new THREE.Mesh(slitGeo, slitMat);
+  const slitR = new THREE.Mesh(slitGeo, slitMat);
+  const placeSlit = (m, a) => {
+    m.position.set(Math.cos(a) * (R / 2 - 0.015), 0.328, -Math.sin(a) * (R / 2 - 0.015));
+    m.rotation.y = a;
+    m.visible = false;
+  };
+  placeSlit(slitL, 0.115);
+  placeSlit(slitR, -0.115);
+  cut.add(slice, slitL, slitR);
+  cut.position.set(0, 0.58, 0);
+  cut.rotation.y = 2.67; // slice faces the boat-stop camera, aimed between two candles
+  g.add(cut);
+  g.userData.cut = { slice, slitL, slitR };
 
   g.position.set(2, 0.1, 5.5);
   g.rotation.y = 0.5;
@@ -925,9 +1473,9 @@ scene.add(boat);
 /* ---------------- lighthouse ---------------- */
 function makeLighthouse() {
   const g = new THREE.Group();
-  const dark = new THREE.MeshStandardMaterial({ color: 0x1c1730, roughness: 0.95 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1c1730, roughness: 0.78 });
 
-  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.9, 1), dark);
+  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.9, 2), dark);
   rock.scale.set(1.35, 0.55, 1.35);
   rock.position.y = 0.25;
   g.add(rock);
@@ -947,7 +1495,7 @@ function makeLighthouse() {
     }
   }
   const brickGeo = new THREE.BoxGeometry(1, COURSE_H * 0.94, 0.18);
-  const brickMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0.04 });
+  const brickMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.78, metalness: 0.04 });
   // instance color doubles as a soft emissive term: popped bricks self-glow warm
   brickMat.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace(
@@ -985,18 +1533,18 @@ function makeLighthouse() {
     dummy,
   };
 
-  const gallery = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.22, 12), dark);
+  const gallery = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.22, 32), dark);
   gallery.position.y = 4.0;
   g.add(gallery);
 
   const lamp = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.45, 0.45, 0.62, 10, 1, true),
+    new THREE.CylinderGeometry(0.45, 0.45, 0.62, 28, 1, true),
     new THREE.MeshBasicMaterial({ color: 0xffd9a0, side: THREE.DoubleSide })
   );
   lamp.position.y = 4.45;
   g.add(lamp);
 
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.7, 10), dark);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.7, 28), dark);
   roof.position.y = 5.1;
   g.add(roof);
 
@@ -1058,12 +1606,12 @@ window.__lh = lighthouse; // debug handle
 window.__cam = camera;    // debug handle
 
 /* ---------------- framing rocks ---------------- */
-const rockMat = new THREE.MeshStandardMaterial({ color: 0x171028, roughness: 1 });
+const rockMat = new THREE.MeshStandardMaterial({ color: 0x171028, roughness: 0.85 });
 [
   [-13, 0.1, 9, 2.6], [-16, 0.2, -2, 3.4], [14, 0.1, 11, 2.2],
   [16, 0.3, -1, 3.8], [-11, 0.05, -12, 2.8], [12, 0.1, -14, 2.4],
 ].forEach(([x, y, z, s]) => {
-  const r = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 1), rockMat);
+  const r = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 2), rockMat);
   r.position.set(x, y, z);
   r.scale.set(s, s * 0.45, s);
   r.rotation.y = Math.random() * Math.PI;
@@ -1089,8 +1637,8 @@ const posCurve = new THREE.CatmullRomCurve3([
   new THREE.Vector3(9, 3.9, -13.5),  // orbit: north (behind)
   new THREE.Vector3(3.2, 3.5, -7),   // orbit: west
   new THREE.Vector3(8.5, 3.0, -1.2), // orbit: closing the loop
-  new THREE.Vector3(6.8, 2.2, 1.8),  // boat, three-quarter
-  new THREE.Vector3(-2, 2.2, 10),    // glide past the boat
+  new THREE.Vector3(7.2, 2.5, 1.2),  // boat, three-quarter — whole cake in frame
+  new THREE.Vector3(-2, 3.4, 11),    // glide past, high enough to clear the cake
   new THREE.Vector3(0, 12, 21),      // finale rise, wide
 ], false, "centripetal");
 const tgtCurve = new THREE.CatmullRomCurve3([
@@ -1125,12 +1673,154 @@ window.addEventListener("mousemove", (e) => {
   pointerNdc.set(mouseX, -mouseY);
 });
 
+/* scroll lock — holds the camera on a steady frame while the cut plays out.
+   Never uses overflow:hidden (losing the scrollbar resizes the canvas and
+   snaps the aspect); instead it swallows scroll gestures and pins progress. */
+const scrollLock = { on: false, y: 0, p: 0, until: 0, hard: 0 };
+const swallow = (e) => { if (scrollLock.on) e.preventDefault(); };
+const SCROLL_KEYS = new Set([
+  " ", "PageUp", "PageDown", "ArrowUp", "ArrowDown", "Home", "End",
+]);
+const keyGuard = (e) => {
+  if (!scrollLock.on) return;
+  if (e.key === "Escape") { unlockScroll(); return; }
+  if (SCROLL_KEYS.has(e.key)) e.preventDefault();
+};
+function lockScroll(t, seconds) {
+  scrollLock.until = t + seconds;
+  scrollLock.hard = t + seconds + 10; // never stick, whatever happens
+  if (scrollLock.on) return;
+  scrollLock.on = true;
+  scrollLock.y = window.scrollY;
+  scrollLock.p = progress;
+  window.addEventListener("wheel", swallow, { passive: false });
+  window.addEventListener("touchmove", swallow, { passive: false });
+  window.addEventListener("keydown", keyGuard, { passive: false });
+}
+function unlockScroll() {
+  if (!scrollLock.on) return;
+  scrollLock.on = false;
+  window.removeEventListener("wheel", swallow);
+  window.removeEventListener("touchmove", swallow);
+  window.removeEventListener("keydown", keyGuard);
+  // hand the smoothed camera back to wherever the page actually sits
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  progressTarget = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+}
+
+window.__lock = scrollLock; // debug handle
+
+/* Dedicated cut shot — a fixed, well-composed frame on the cake, computed in
+   boat space at click time then frozen in world space. The cake keeps bobbing
+   inside a camera that does not move at all. */
+const cutCam = {
+  active: false, t0: 0, hold: 17.4, w: 0,
+  pos: new THREE.Vector3(), tgt: new THREE.Vector3(),
+};
+function armCutShot(t) {
+  cutCam.active = true;
+  cutCam.t0 = t;
+  cutCam.w = 0;
+  boat.updateWorldMatrix(true, false);
+  // Off the beam and pulled back so the whole hull runs across frame under the
+  // cake. Narrow windows have less horizontal FOV, so back off further there —
+  // otherwise the bow and stern crop on portrait and squarish viewports.
+  // Solve for the distance that fits the hull (half-length + margin) inside the
+  // horizontal FOV, so the bow and stern never crop on a narrow window.
+  const halfV = THREE.MathUtils.degToRad(camera.fov) / 2;
+  const need = 3.1 / (Math.tan(halfV) * camera.aspect);
+  const wide = Math.min(2.2, Math.max(1, need / 4.78));
+  cutCam.pos.copy(
+    boat.localToWorld(new THREE.Vector3(-0.62 * wide, 0.55 + 1.2 * wide, 4.62 * wide))
+  );
+  boat.updateWorldMatrix(true, false);
+  cutCam.tgt.copy(boat.localToWorld(new THREE.Vector3(0, 0.52, 0)));
+}
+function cutShotWeight(t) {
+  if (!cutCam.active) return 0;
+  const e = t - cutCam.t0;
+  if (e >= cutCam.hold) { cutCam.active = false; return 0; }
+  const inW = smooth01(e / 0.6);
+  const outW = 1 - smooth01((e - (cutCam.hold - 1.3)) / 1.3);
+  return Math.max(0, Math.min(inW, outW));
+}
+
+/* cut-the-cake interaction */
+const cutSeq = { state: "idle", t0: 0 };
+const KNIFE_UP_POS = new THREE.Vector3(-0.196, 1.53, -0.1);
+const KNIFE_UP_ROT = new THREE.Vector3(0, 2.67, -1.42);
+/* The cut is a draw stroke, not a plunge: the blade enters high on one side of
+   the cake and sweeps down and across to the other, along the cut line. */
+const CUT_DIR = new THREE.Vector3(Math.cos(2.67), 0, -Math.sin(2.67)); // cut-group +x
+const KNIFE_ENTRY = KNIFE_UP_POS.clone().addScaledVector(CUT_DIR, 0.46);
+const KNIFE_EXIT = KNIFE_UP_POS.clone().addScaledVector(CUT_DIR, -0.46).setY(KNIFE_UP_POS.y - 0.42);
+const KNIFE_CLEAR = KNIFE_EXIT.clone().addScaledVector(CUT_DIR, -0.24).setY(KNIFE_EXIT.y + 0.36);
+window.addEventListener("pointerdown", () => {
+  if (cutSeq.state !== "idle") return;
+  raycaster.setFromCamera(pointerNdc, camera);
+  if (raycaster.intersectObject(boat.userData.knife, true).length) {
+    const t = clock.getElapsedTime();
+    cutSeq.state = "lift";
+    cutSeq.t0 = t;
+    // hold the frame through the cut and the whole firework show
+    armCutShot(t);
+    lockScroll(t, cutCam.hold);
+    document.body.classList.add("cutting");
+  }
+});
+
+window.__cut = cutSeq;                              // debug handle
+window.__now = () => clock.getElapsedTime();        // debug handle
+
+function updateCutSeq(t) {
+  if (cutSeq.state === "idle") return;
+  const kn = boat.userData.knife;
+  const cut = boat.userData.cut;
+  const rp = kn.userData.restPos, rr = kn.userData.restRot;
+  const e = t - cutSeq.t0;
+  const adv = (next) => { cutSeq.state = next; cutSeq.t0 = t; };
+  if (cutSeq.state === "lift") {
+    // raise off the deck to the entry corner, blade turned down onto the cut line
+    const k = smooth01(e / 0.8);
+    kn.position.lerpVectors(rp, KNIFE_ENTRY, k);
+    kn.rotation.set(
+      rr.x + (KNIFE_UP_ROT.x - rr.x) * k,
+      rr.y + (KNIFE_UP_ROT.y - rr.y) * k,
+      rr.z + (KNIFE_UP_ROT.z - rr.z) * k
+    );
+    if (e >= 0.8) adv("slice");
+  } else if (cutSeq.state === "slice") {
+    // the draw stroke — across the cake and down through it at the same time
+    const k = smooth01(e / 0.9);
+    kn.position.lerpVectors(KNIFE_ENTRY, KNIFE_EXIT, k);
+    kn.rotation.z = KNIFE_UP_ROT.z + 0.22 * k; // heel drops, tip trails
+    if (e >= 0.9) {
+      cut.slice.visible = cut.slitL.visible = cut.slitR.visible = true;
+      fireworks.activeUntil = t + 15;
+      fireworks.nextLaunch = t;
+      adv("reveal");
+    }
+  } else if (cutSeq.state === "reveal") {
+    const k = smooth01(e / 0.9);
+    cut.slice.position.x = 0.92 * k;
+    cut.slice.rotation.z = -0.1 * k;
+    kn.position.lerpVectors(KNIFE_EXIT, KNIFE_CLEAR, k); // draw clear of the slice
+    if (e >= 0.9) adv("return");
+  } else if (cutSeq.state === "return") {
+    const k = smooth01(e / 1.0);
+    kn.position.lerpVectors(KNIFE_CLEAR, rp, k);
+    kn.rotation.set(
+      KNIFE_UP_ROT.x + (rr.x - KNIFE_UP_ROT.x) * k,
+      KNIFE_UP_ROT.y + (rr.y - KNIFE_UP_ROT.y) * k,
+      (KNIFE_UP_ROT.z + 0.22) + (rr.z - KNIFE_UP_ROT.z - 0.22) * k
+    );
+    if (e >= 1.0) adv("idle");
+  }
+}
+
 /* ---------------- DOM: sections, rail, badge ---------------- */
 const sections = [
   { el: document.getElementById("s-hero"), center: 0.0, width: 0.09 },
-  { el: document.getElementById("s-release"), center: 0.13, width: 0.06 },
-  { el: document.getElementById("s-keeper"), center: 0.42, width: 0.16 },
-  { el: document.getElementById("s-water"), center: 0.77, width: 0.07 },
   { el: document.getElementById("s-cta"), center: 0.985, width: 0.1 },
 ];
 const railDot = document.getElementById("rail-dot");
@@ -1150,7 +1840,7 @@ function updateDom(p) {
     if (d < best) { best = d; active = i; }
   }
   railDot.style.top = `${(p * 100).toFixed(2)}%`;
-  railIdx.textContent = `0${active + 1} / 05`;
+  railIdx.textContent = `0${active + 1} / 0${sections.length}`;
   badge.classList.toggle("hide", p > 0.04);
 }
 
@@ -1208,6 +1898,8 @@ function updateBricks(p) {
 }
 let firstFrame = false;
 let fpsCount = 0, fpsLast = performance.now();
+let prevT = 0;
+let knifeHover = false;
 
 function tick() {
   requestAnimationFrame(tick);
@@ -1225,20 +1917,39 @@ function frame() {
     fpsLast = now;
   }
   const t = clock.getElapsedTime();
-  const dt = Math.min(clock.getDelta ? 0.016 : 0.016, 0.05); // fixed-ish smoothing step
+  const dt = Math.min(Math.max(t - prevT, 0.001), 0.05);
+  prevT = t;
+
+  // scroll lock: pin the camera, swallow any scroll that slipped through
+  if (scrollLock.on) {
+    if (t >= scrollLock.until || t >= scrollLock.hard) unlockScroll();
+    else if (window.scrollY !== scrollLock.y) window.scrollTo(0, scrollLock.y);
+  }
 
   // smooth scroll + parallax
-  progress += (progressTarget - progress) * 0.035;
+  if (scrollLock.on) progress = progressTarget = scrollLock.p;
+  else progress += (progressTarget - progress) * 0.035;
   if (window.__freezeAt !== undefined) progress = progressTarget = window.__freezeAt;
   mouseLX += (mouseX - mouseLX) * 0.05;
   mouseLY += (mouseY - mouseLY) * 0.05;
+  // damp parallax while locked so the cut plays on a near-still frame
+  const par = scrollLock.on ? 0.3 : 1;
 
   const p = Math.min(1, Math.max(0, progress));
   posCurve.getPoint(p, camPos);
   tgtCurve.getPoint(p, camTgt);
+  camPos.x += mouseLX * 0.9 * par;
+  camPos.y += -mouseLY * 0.55 * par;
+  // blend into the frozen cut shot while the cake is being cut
+  const cw = cutShotWeight(t);
+  cutCam.w = cw;
+  if (cw > 0) {
+    camPos.lerp(cutCam.pos, cw);
+    camTgt.lerp(cutCam.tgt, cw);
+  } else if (document.body.classList.contains("cutting") && cutSeq.state === "idle") {
+    document.body.classList.remove("cutting");
+  }
   camera.position.copy(camPos);
-  camera.position.x += mouseLX * 0.9;
-  camera.position.y += -mouseLY * 0.55;
   camera.lookAt(camTgt);
 
   // uniforms
@@ -1253,6 +1964,25 @@ function frame() {
   boat.position.y = 0.1 + Math.sin(t * 0.8) * 0.05;
   boat.rotation.z = Math.sin(t * 0.6) * 0.02;
   boat.rotation.x = Math.sin(t * 0.5 + 1.2) * 0.015;
+
+  // candle flame flicker
+  const fs = 0.9 + 0.08 * Math.sin(t * 9.7) + 0.05 * Math.sin(t * 15.3);
+  boat.userData.flameMat.color.setRGB(fs, 0.87 * fs, 0.55 * fs);
+
+  // cut-the-cake sequence + fireworks + knife hover glow
+  updateCutSeq(t);
+  updateFireworks(t, dt);
+  if (cutSeq.state === "idle") {
+    raycaster.setFromCamera(pointerNdc, camera);
+    const overKnife = raycaster.intersectObject(boat.userData.knife, true).length > 0;
+    boat.userData.bladeMat.emissive.setScalar(
+      overKnife ? 0.18 + 0.08 * Math.sin(t * 6.0) : 0
+    );
+    if (overKnife !== knifeHover) {
+      knifeHover = overKnife;
+      document.body.classList.toggle("cursor-hover", knifeHover);
+    }
+  }
 
   // lighthouse beam sweep
   lighthouse.userData.beamGroup.rotation.y = t * 0.22;
