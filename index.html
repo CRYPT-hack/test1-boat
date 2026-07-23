@@ -279,6 +279,220 @@
 
   .scroll-space { position: relative; z-index: -1; height: 1300vh; }
 
+  /* ---------- locked heart gate ---------- */
+  #gate {
+    position: fixed; inset: 0; z-index: 70;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, #1a0a18 0%, #06030b 70%);
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.9s ease;
+  }
+  body.gated #gate { opacity: 1; visibility: visible; }
+  body.gated { cursor: auto; }
+  body.gated #cursor-dot, body.gated #cursor-ring { display: none; }
+  #gate * { cursor: auto; }
+  #gate-go, #gate label { cursor: pointer; }
+
+  #gate { flex-direction: column; gap: clamp(0.8rem, 2vh, 1.6rem); }
+
+  /* ---- pixel heart, big enough to own the screen ---- */
+  .heart-stage {
+    position: relative;
+    width: min(94vw, 82vh * 16 / 14);
+    aspect-ratio: 16 / 14;
+    /* everything inside sizes off the heart itself, not the viewport */
+    container-type: size;
+    container-name: heart;
+    filter:
+      drop-shadow(0 0 14px rgba(255, 90, 150, 0.55))
+      drop-shadow(0 0 60px rgba(255, 50, 130, 0.4))
+      drop-shadow(0 0 130px rgba(255, 40, 120, 0.25));
+    animation: beat 2.1s ease-in-out infinite;
+  }
+  @keyframes beat {
+    0%, 100% { transform: scale(1); }
+    10% { transform: scale(1.035); }
+    20% { transform: scale(1); }
+    30% { transform: scale(1.02); }
+  }
+  #heart-px { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #heart-px rect {
+    transition: transform 0.85s cubic-bezier(0.5, 0, 0.75, 0), opacity 0.7s ease 0.15s;
+  }
+
+  /* ---- numpad nested inside the heart ---- */
+  /* 45% wide, centred at 43% — the largest block that sits inside the
+     heart's actual pixel silhouette (rows 2-9, cols 3-12), not just its box */
+  .pad-wrap {
+    position: absolute;
+    left: 50%; top: 43%;
+    transform: translate(-50%, -50%);
+    width: 45%;
+    display: flex; flex-direction: column;
+    gap: 2.2cqw;
+    transition: opacity 0.4s ease, transform 0.5s ease;
+  }
+  .code-slots {
+    display: flex; justify-content: center;
+    gap: 1.5cqw;
+  }
+  .code-slots i {
+    width: 2.6cqw;
+    aspect-ratio: 1;
+    background: rgba(120, 20, 55, 0.42);
+    box-shadow: inset 0 0 0 2px rgba(255, 220, 235, 0.22);
+    transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  }
+  .code-slots i.on {
+    background: #fff2f8;
+    box-shadow: 0 0 10px #ffd0e8, 0 0 22px rgba(255, 140, 200, 0.9);
+    transform: scale(1.16);
+  }
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 1fr;
+    gap: 1.1cqw;
+  }
+  .key {
+    position: relative;
+    aspect-ratio: 1;
+    border: 0;
+    border-radius: 22%;
+    font-family: "Inter", system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 1rem;   /* fallback if container units are unsupported */
+    font-size: 4.4cqw;
+    color: #a8548b;
+    background: linear-gradient(#fffdfa 0%, #fdf3f7 52%, #eddfea 100%);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -3px 0 rgba(196, 168, 190, 0.45),
+      0 3px 0 rgba(150, 110, 140, 0.35),
+      0 5px 9px rgba(80, 20, 55, 0.3);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+    user-select: none;
+  }
+  .key:hover { filter: brightness(1.06); }
+  .key:active, .key.hit {
+    transform: translateY(3px);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.9),
+      inset 0 -1px 0 rgba(196, 168, 190, 0.4),
+      0 0 0 rgba(150, 110, 140, 0.35),
+      0 1px 4px rgba(80, 20, 55, 0.35);
+  }
+  .key .charm {
+    position: absolute; right: 11%; bottom: 8%;
+    font-size: 0.52em; font-style: normal;
+    color: #e88ab8; opacity: 0.85;
+  }
+  .key-fn { color: #c479a6; background: linear-gradient(#fffdfa 0%, #fbeef4 52%, #e7d5e4 100%); }
+  .key-zero { grid-column: span 2; aspect-ratio: auto; }
+  .key-go {
+    grid-row: span 2;
+    aspect-ratio: auto;
+    color: #fff4f9;
+    font-size: 5.8cqw;
+    background: linear-gradient(#ff7ab8 0%, #f4569f 55%, #d63b81 100%);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.55),
+      inset 0 -3px 0 rgba(150, 30, 85, 0.5),
+      0 3px 0 rgba(130, 25, 75, 0.5),
+      0 5px 12px rgba(120, 10, 60, 0.45);
+  }
+
+  #gate-hint {
+    font-size: clamp(0.52rem, 1.3vw, 0.66rem);
+    letter-spacing: 0.3em; text-transform: uppercase;
+    color: rgba(255, 200, 230, 0.5);
+    transition: color 0.3s;
+  }
+  body.gate-wrong .heart-stage { animation: shake 0.5s ease; }
+  body.gate-wrong #gate-hint { color: #ff7ab4; }
+  body.gate-wrong .code-slots i { background: rgba(220, 40, 90, 0.65); }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-13px) rotate(-1.2deg); }
+    40% { transform: translateX(12px) rotate(1.2deg); }
+    60% { transform: translateX(-8px) rotate(-0.6deg); }
+    80% { transform: translateX(5px); }
+  }
+
+  /* opening — the heart bursts apart into its own pixels */
+  body.opening .heart-stage { animation: none; }
+  body.opening .pad-wrap { opacity: 0; transform: translate(-50%, -50%) scale(0.86); }
+  body.opening #gate-hint { opacity: 0; }
+  body.opening #heart-px rect { opacity: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .heart-stage { animation: none; }
+  }
+
+  /* the flash that swallows the screen */
+  #flash {
+    position: fixed; inset: 0; z-index: 80;
+    background: #fff;
+    opacity: 0; pointer-events: none;
+  }
+  #flash.blast { animation: blast 2.1s ease-out forwards; }
+  @keyframes blast {
+    0% { opacity: 0; }
+    14% { opacity: 1; }
+    30% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.gated .heart-stage { animation: none; }
+    #flash.blast { animation: blastSoft 1.4s ease-out forwards; }
+    @keyframes blastSoft { 0% { opacity: 0; } 30% { opacity: 0.45; } 100% { opacity: 0; } }
+  }
+
+  /* birthday message — rides in with the fireworks */
+  .birthday {
+    position: fixed;
+    left: 50%; top: 15%;
+    transform: translate(-50%, 26px) scale(0.94);
+    z-index: 12;
+    pointer-events: none;
+    white-space: nowrap;
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-style: italic;
+    font-size: clamp(1.05rem, 6.2vw, 4.4rem);
+    letter-spacing: 0.1em;
+    color: #fff0f8;
+    text-shadow:
+      0 0 6px #ffb3de,
+      0 0 16px #ff74c4,
+      0 0 34px #ff3fae,
+      0 0 68px rgba(255, 47, 166, 0.85),
+      0 0 120px rgba(255, 47, 166, 0.5);
+    opacity: 0;
+    transition: opacity 1.2s ease, transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  body.celebrate .birthday {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+    animation: bdayGlow 3.2s ease-in-out infinite;
+  }
+  @keyframes bdayGlow {
+    0%, 100% {
+      text-shadow:
+        0 0 6px #ffb3de, 0 0 16px #ff74c4, 0 0 34px #ff3fae,
+        0 0 68px rgba(255, 47, 166, 0.85), 0 0 120px rgba(255, 47, 166, 0.5);
+    }
+    50% {
+      text-shadow:
+        0 0 8px #ffd0ea, 0 0 22px #ff8ccf, 0 0 48px #ff5cbb,
+        0 0 96px rgba(255, 60, 175, 0.95), 0 0 160px rgba(255, 60, 175, 0.6);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.celebrate .birthday { animation: none; }
+  }
+
   /* nothing overlays the cake while it is being cut */
   body.cutting .sections,
   body.cutting nav.ui,
@@ -358,6 +572,38 @@
     </div>
   </section>
 </div>
+
+<!-- locked heart: the way in -->
+<div id="gate">
+  <div class="heart-stage">
+    <svg id="heart-px" viewBox="0 0 16 14" shape-rendering="crispEdges" aria-hidden="true"></svg>
+    <div class="pad-wrap">
+      <div class="code-slots" id="code-slots" role="status" aria-label="passcode"></div>
+      <div class="numpad" id="numpad">
+        <button class="key" data-k="7">7</button>
+        <button class="key" data-k="8">8</button>
+        <button class="key" data-k="9">9<i class="charm">✿</i></button>
+        <button class="key key-fn" data-k="del" aria-label="delete">⌫</button>
+
+        <button class="key" data-k="4">4</button>
+        <button class="key" data-k="5">5</button>
+        <button class="key" data-k="6">6</button>
+        <button class="key key-go" data-k="go" aria-label="open">♥</button>
+
+        <button class="key" data-k="1">1<i class="charm">★</i></button>
+        <button class="key" data-k="2">2</button>
+        <button class="key" data-k="3">3</button>
+
+        <button class="key key-zero" data-k="0">0</button>
+        <button class="key key-fn" data-k="clr" aria-label="clear">✕</button>
+      </div>
+    </div>
+  </div>
+  <div id="gate-hint">only you know it</div>
+</div>
+<div id="flash"></div>
+
+<div class="birthday" id="birthday">HAPPY BIRTHDAY BABY</div>
 
 <!-- cursor -->
 <div id="cursor-dot"></div>
@@ -1798,6 +2044,7 @@ function updateCutSeq(t) {
       cut.slice.visible = cut.slitL.visible = cut.slitR.visible = true;
       fireworks.activeUntil = t + 15;
       fireworks.nextLaunch = t;
+      document.body.classList.add("celebrate");
       adv("reveal");
     }
   } else if (cutSeq.state === "reveal") {
@@ -1948,6 +2195,7 @@ function frame() {
     camTgt.lerp(cutCam.tgt, cw);
   } else if (document.body.classList.contains("cutting") && cutSeq.state === "idle") {
     document.body.classList.remove("cutting");
+    document.body.classList.remove("celebrate");
   }
   camera.position.copy(camPos);
   camera.lookAt(camTgt);
@@ -2027,14 +2275,183 @@ function plTick() {
   plCount.textContent = String(shown).padStart(2, "0");
   plBar.style.transform = `scaleX(${(shown / 100).toFixed(3)})`;
   if (shown >= 100 && elapsed > 1400 && window.__firstFrame) {
-    document.body.classList.add("ready");
+    openGate();
     return;
   }
   requestAnimationFrame(plTick);
 }
 plTick();
 // hard fallback: never trap the user on the loader
-setTimeout(() => document.body.classList.add("ready"), 6000);
+setTimeout(openGate, 6000);
+
+/* ============================================================
+   Locked heart — the password gate.
+
+   NOTE: this is a keepsake, not security. The word below sits in
+   plain text in this file, so anyone who opens the page source can
+   read it. Treat it as a sealed envelope, not a lock.
+   ============================================================ */
+const GATE_CODE = "1234"; // <-- change me
+
+/* ---- build the pixel heart ---- */
+const HEART_MASK = [
+  "....XX....XX....",
+  "...XXXX..XXXX...",
+  "..XXXXXXXXXXXX..",
+  ".XXXXXXXXXXXXXX.",
+  "XXXXXXXXXXXXXXXX",
+  "XXXXXXXXXXXXXXXX",
+  "XXXXXXXXXXXXXXXX",
+  ".XXXXXXXXXXXXXX.",
+  "..XXXXXXXXXXXX..",
+  "...XXXXXXXXXX...",
+  "....XXXXXXXX....",
+  ".....XXXXXX.....",
+  "......XXXX......",
+  ".......XX.......",
+];
+const PX_OUTLINE = "#9e2b4e";
+const PX_FILL = "#ef5f8b";
+const PX_SHADE = "#e04c79";
+const PX_LIGHT = "#f9a7c1";
+const HIGHLIGHTS = new Set(["1,10", "1,11", "2,11", "2,12", "3,12", "3,13"]);
+
+const heartSvg = document.getElementById("heart-px");
+const heartRects = [];
+(function buildHeart() {
+  if (!heartSvg) return;
+  const at = (r, c) =>
+    r >= 0 && r < HEART_MASK.length && c >= 0 && c < 16 ? HEART_MASK[r][c] : ".";
+  const NS = "http://www.w3.org/2000/svg";
+  for (let r = 0; r < HEART_MASK.length; r++) {
+    for (let c = 0; c < 16; c++) {
+      if (at(r, c) !== "X") continue;
+      const edge =
+        at(r - 1, c) !== "X" || at(r + 1, c) !== "X" ||
+        at(r, c - 1) !== "X" || at(r, c + 1) !== "X";
+      let fill = PX_FILL;
+      if (edge) fill = PX_OUTLINE;
+      else if (HIGHLIGHTS.has(r + "," + c)) fill = PX_LIGHT;
+      else if (c < 5 && r > 6) fill = PX_SHADE; // soft shading, lower left
+      const rect = document.createElementNS(NS, "rect");
+      // hairline overlap kills seams between pixels on fractional scales
+      rect.setAttribute("x", c);
+      rect.setAttribute("y", r);
+      rect.setAttribute("width", 1.02);
+      rect.setAttribute("height", 1.02);
+      rect.setAttribute("fill", fill);
+      heartSvg.appendChild(rect);
+      heartRects.push({ el: rect, r, c });
+    }
+  }
+})();
+
+/* ---- gate state ---- */
+const gateEl = document.getElementById("gate");
+const gateHint = document.getElementById("gate-hint");
+const flashEl = document.getElementById("flash");
+const slotsEl = document.getElementById("code-slots");
+const numpadEl = document.getElementById("numpad");
+let entered = "";
+let gateShown = false;
+let gatePassed = false;
+
+function drawSlots() {
+  if (!slotsEl) return;
+  slotsEl.innerHTML = "";
+  for (let i = 0; i < GATE_CODE.length; i++) {
+    const dot = document.createElement("i");
+    if (i < entered.length) dot.className = "on";
+    slotsEl.appendChild(dot);
+  }
+}
+drawSlots();
+
+function openGate() {
+  if (gateShown || gatePassed) return;
+  gateShown = true;
+  document.body.classList.add("gated");
+  document.getElementById("preloader").style.transform = "translateY(-101%)";
+}
+
+function unlock() {
+  if (gatePassed) return;
+  gatePassed = true;
+  // blow every pixel of the heart outward from its centre
+  for (const p of heartRects) {
+    const dx = p.c - 7.5, dy = p.r - 6;
+    const d = Math.hypot(dx, dy) || 1;
+    const push = 9 + Math.random() * 13;
+    p.el.style.transform =
+      `translate(${(dx / d) * push}px, ${(dy / d) * push - 3}px) rotate(${(Math.random() - 0.5) * 120}deg)`;
+    p.el.style.transitionDelay = `${d * 0.012 + Math.random() * 0.05}s`;
+  }
+  document.body.classList.add("opening");
+  flashEl.classList.add("blast");
+  setTimeout(() => {
+    document.body.classList.remove("gated", "opening");
+    gateEl.style.display = "none";
+    document.body.classList.add("ready"); // main animation starts here
+  }, 780);
+}
+
+function wrongCode() {
+  document.body.classList.remove("gate-wrong");
+  void document.body.offsetWidth; // restart the shake
+  document.body.classList.add("gate-wrong");
+  gateHint.textContent = "not it — try again";
+  setTimeout(() => {
+    document.body.classList.remove("gate-wrong");
+    entered = "";
+    drawSlots();
+  }, 620);
+}
+
+function press(k) {
+  if (gatePassed || document.body.classList.contains("gate-wrong")) return;
+  if (k === "del") entered = entered.slice(0, -1);
+  else if (k === "clr") entered = "";
+  else if (k === "go") {
+    if (entered === GATE_CODE) return unlock();
+    if (entered.length) return wrongCode();
+    return;
+  } else if (entered.length < GATE_CODE.length) {
+    entered += k;
+  }
+  drawSlots();
+  // full-length entry checks itself, so no Enter needed
+  if (entered.length === GATE_CODE.length) {
+    setTimeout(() => {
+      if (gatePassed) return;
+      if (entered === GATE_CODE) unlock();
+      else wrongCode();
+    }, 220);
+  }
+}
+
+if (numpadEl) {
+  numpadEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".key");
+    if (btn) press(btn.dataset.k);
+  });
+}
+// physical keyboard works too
+window.addEventListener("keydown", (e) => {
+  if (!document.body.classList.contains("gated") || gatePassed) return;
+  let k = null;
+  if (/^[0-9]$/.test(e.key)) k = e.key;
+  else if (e.key === "Backspace") k = "del";
+  else if (e.key === "Enter") k = "go";
+  else if (e.key === "Escape") k = "clr";
+  if (!k) return;
+  e.preventDefault();
+  const btn = numpadEl && numpadEl.querySelector(`.key[data-k="${k}"]`);
+  if (btn) {
+    btn.classList.add("hit");
+    setTimeout(() => btn.classList.remove("hit"), 110);
+  }
+  press(k);
+});
 
 /* custom cursor */
 const dot = document.getElementById("cursor-dot");
