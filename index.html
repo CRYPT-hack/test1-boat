@@ -449,6 +449,115 @@
     @keyframes blastSoft { 0% { opacity: 0; } 30% { opacity: 0.45; } 100% { opacity: 0; } }
   }
 
+  /* ---------- final page: scrapbook ---------- */
+  #scrapbook {
+    position: relative; z-index: 6;
+    min-height: 100vh;
+    padding: 6vh 3vw;
+    display: flex; align-items: center; justify-content: center;
+    background:
+      radial-gradient(ellipse at 50% 30%, #6d1a27 0%, #4d0f1b 55%, #360a13 100%);
+  }
+  #scrapbook::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='v'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23v)'/%3E%3C/svg%3E");
+    opacity: 0.13; mix-blend-mode: overlay;
+  }
+  .sb-stage {
+    position: relative;
+    width: min(96vw, 1180px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .board {
+    position: relative;
+    /* the vh term caps height without max-height, which would otherwise
+       override aspect-ratio and squash the board */
+    width: min(74vw, 430px, 86vh * 736 / 1308);
+    aspect-ratio: 736 / 1308;
+    border-radius: 6px;
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+    background: linear-gradient(160deg, #6b1a27 0%, #4a0f1a 60%, #3a0b14 100%);
+  }
+  .board-real { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+  .board.has-real .board-real { display: block; }
+  .board.has-real .board-drawn { display: none; }
+  .board-drawn { position: absolute; inset: 0; }
+  .board-drawn .bit { position: absolute; }
+
+  .balloons { width: 40%; left: 4%; top: 5%; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); }
+  .disco { width: 22%; right: 4%; top: 3%; filter: drop-shadow(0 6px 12px rgba(0,0,0,.5)); }
+  .star { width: 5%; aspect-ratio: 1; background: #cf1626;
+    clip-path: polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%); }
+  .star-a { right: 27%; top: 5%; }
+  .star-b { right: 3%; top: 15%; width: 4%; }
+  .star-c { left: 12%; bottom: 12%; width: 7%; }
+  .cherries { width: 15%; right: 27%; top: 15%; }
+  .kiss { width: 24%; left: 1%; top: 42%; transform: rotate(-9deg); }
+  .hibiscus { width: 20%; right: 6%; bottom: 12%; filter: drop-shadow(0 4px 8px rgba(0,0,0,.45)); }
+
+  .note {
+    width: 34%; height: 20%; right: 3%; top: 21%;
+    background: #f6ecd9; transform: rotate(6deg);
+    box-shadow: 0 6px 14px rgba(0,0,0,.4);
+    padding: 7% 6%; overflow: hidden;
+  }
+  .note .nl { display: block; height: 1px; background: rgba(90,60,60,.35); margin-bottom: 13%; }
+  .note .nh { position: absolute; color: #b3121f; font-size: 1.1em; }
+  .note .nh1 { left: 14%; top: 22%; transform: rotate(-12deg); }
+  .note .nh2 { left: 58%; top: 44%; }
+  .note .nh3 { left: 32%; top: 68%; transform: rotate(10deg); }
+
+  .polaroid {
+    position: absolute; left: 50%; top: 53%;
+    transform: translate(-50%, -50%) rotate(-1deg);
+    width: 62%; aspect-ratio: 0.86;
+    background: #6d1622;
+    padding: 6% 6% 16%;
+    box-shadow: 0 16px 34px rgba(0,0,0,.55);
+  }
+  .pol-photo { width: 100%; height: 100%; background: #000; overflow: hidden; }
+  .pol-photo img { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .pol-photo img.ok { display: block; }
+
+  /* photo slots that fill the two black frames in the real board */
+  .slot { position: absolute; overflow: hidden; display: none; }
+  .board.has-real .slot { display: block; }
+  .slot img { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .slot img.ok { display: block; }
+  /* measured against the board's two black frames (portrait 736x1308) */
+  .slot-a { left: 52.1%; top: 27.3%; width: 35.6%; height: 35.4%; transform: rotate(-2deg); }
+  .slot-b { left: 8.2%;  top: 48.6%; width: 45.6%; height: 32.5%; transform: rotate(1deg); }
+
+  /* stickers */
+  .stickers { position: absolute; inset: 0; pointer-events: none; }
+  .sticker {
+    position: absolute;
+    width: var(--w, 15%);
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5));
+    transform: rotate(var(--rot, 0deg));
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .sticker img {
+    width: 100%; display: block; border-radius: 6px;
+    /* the white cut-out edge that makes it read as a sticker */
+    box-shadow: 0 0 0 5px #fff, 0 0 0 6px rgba(0, 0, 0, 0.12);
+  }
+  .sticker.cut img { box-shadow: none; border-radius: 0;
+    filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff); }
+  .sb-reveal .sticker { animation: stickIn 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; }
+  @keyframes stickIn {
+    from { opacity: 0; transform: rotate(var(--rot, 0deg)) scale(0.5); }
+    to { opacity: 1; transform: rotate(var(--rot, 0deg)) scale(1); }
+  }
+  @media (max-width: 780px) {
+      .board { width: min(88vw, 400px, 86vh * 736 / 1308); }
+    .sticker { width: calc(var(--w, 15%) * 0.82); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sb-reveal .sticker { animation: none; }
+  }
+
   /* birthday message — rides in with the fireworks */
   .birthday {
     position: fixed;
@@ -610,6 +719,99 @@
 <div id="cursor-ring"></div>
 
 <div class="scroll-space"></div>
+
+<!-- ================= the last page: a scrapbook ================= -->
+<section id="scrapbook">
+  <div class="sb-stage">
+
+    <!-- the board. Drop assets/board.webp in and it replaces this drawing. -->
+    <div class="board">
+      <img class="board-real" src="assets/board.png" alt="" />
+
+      <div class="board-drawn">
+        <!-- 20 foil balloons -->
+        <svg class="bit balloons" viewBox="0 0 120 90" aria-hidden="true">
+          <defs>
+            <linearGradient id="foil" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#ffd9e2"/><stop offset=".35" stop-color="#e9a8b8"/>
+              <stop offset=".55" stop-color="#f7c8d4"/><stop offset="1" stop-color="#c98595"/>
+            </linearGradient>
+          </defs>
+          <g fill="none" stroke="url(#foil)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 33 q8 -15 27 -6 q10 8 -3 22 l-23 25 h33"/>
+            <path d="M78 26 q16 0 16 22 q0 22 -16 22 q-16 0 -16 -22 q0 -22 16 -22 z"/>
+          </g>
+        </svg>
+
+        <!-- disco ball + stars -->
+        <svg class="bit disco" viewBox="0 0 100 100" aria-hidden="true">
+          <defs>
+            <radialGradient id="ball" cx=".35" cy=".3">
+              <stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#c9ccd6"/>
+              <stop offset="1" stop-color="#6e7482"/>
+            </radialGradient>
+          </defs>
+          <circle cx="50" cy="54" r="34" fill="url(#ball)"/>
+          <g stroke="rgba(40,45,60,.45)" stroke-width="1.4">
+            <path d="M16 54h68M20 40h60M20 68h60M26 28h48M26 80h48"/>
+            <path d="M50 20v68M36 22v64M64 22v64M26 30v48M74 30v48"/>
+          </g>
+          <circle cx="38" cy="42" r="7" fill="rgba(255,255,255,.85)"/>
+          <path d="M50 20v-14" stroke="#8d93a1" stroke-width="2"/>
+        </svg>
+        <div class="bit star star-a"></div>
+        <div class="bit star star-b"></div>
+        <div class="bit star star-c"></div>
+
+        <!-- cherries -->
+        <svg class="bit cherries" viewBox="0 0 80 80" aria-hidden="true">
+          <path d="M40 8 q-14 16 -20 30 M40 8 q10 18 14 30" fill="none" stroke="#7b5a2a" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="19" cy="48" r="14" fill="#b1121f"/>
+          <circle cx="56" cy="50" r="13" fill="#8e0d19"/>
+          <circle cx="14" cy="43" r="4" fill="rgba(255,255,255,.5)"/>
+        </svg>
+
+        <!-- the love note -->
+        <div class="bit note">
+          <span class="nl"></span><span class="nl"></span><span class="nl"></span>
+          <span class="nl"></span><span class="nl"></span><span class="nl"></span>
+          <b class="nh nh1">♥</b><b class="nh nh2">♥</b><b class="nh nh3">♥</b>
+        </div>
+
+        <!-- lipstick prints -->
+        <svg class="bit kiss" viewBox="0 0 100 120" aria-hidden="true">
+          <g fill="#8d1220" opacity=".82">
+            <path d="M18 34 q14 -12 26 -2 q12 -10 26 2 q4 12 -26 22 q-30 -10 -26 -22z"/>
+            <path d="M22 74 q13 -11 24 -2 q11 -9 24 2 q4 11 -24 20 q-28 -9 -24 -20z" opacity=".75"/>
+          </g>
+        </svg>
+
+        <!-- hibiscus -->
+        <svg class="bit hibiscus" viewBox="0 0 100 100" aria-hidden="true">
+          <g fill="#fdf6ef">
+            <ellipse cx="50" cy="24" rx="19" ry="23"/><ellipse cx="76" cy="43" rx="19" ry="23" transform="rotate(72 76 43)"/>
+            <ellipse cx="66" cy="74" rx="19" ry="23" transform="rotate(144 66 74)"/><ellipse cx="34" cy="74" rx="19" ry="23" transform="rotate(216 34 74)"/>
+            <ellipse cx="24" cy="43" rx="19" ry="23" transform="rotate(288 24 43)"/>
+          </g>
+          <circle cx="50" cy="50" r="9" fill="#f3e2cf"/>
+          <path d="M50 50 l14 -18" stroke="#e8d3bb" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+
+        <!-- the polaroid -->
+        <div class="polaroid">
+          <div class="pol-photo"><img src="assets/main-photo.jpg" alt="" /></div>
+        </div>
+      </div>
+
+      <!-- photos dropped into the real board's two black frames -->
+      <div class="slot slot-a"><img src="assets/photo-1.jpg" alt="" /></div>
+      <div class="slot slot-b"><img src="assets/photo-2.jpg" alt="" /></div>
+    </div>
+
+    <!-- cute stickers, ringed around the board -->
+    <div class="stickers" id="stickers"></div>
+  </div>
+</section>
 
 <script type="importmap">
 {
@@ -1906,9 +2108,15 @@ let progressTarget = 0;
 let mouseX = 0, mouseY = 0;
 let mouseLX = 0, mouseLY = 0;
 
+/* The journey maps to the tall spacer only — the scrapbook that follows it
+   must not compress the flight path. */
+const scrollSpaceEl = document.querySelector(".scroll-space");
+function journeyMax() {
+  const h = scrollSpaceEl ? scrollSpaceEl.offsetHeight : document.documentElement.scrollHeight;
+  return Math.max(1, h - window.innerHeight);
+}
 window.addEventListener("scroll", () => {
-  const max = document.documentElement.scrollHeight - window.innerHeight;
-  progressTarget = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+  progressTarget = Math.min(1, Math.max(0, window.scrollY / journeyMax()));
 }, { passive: true });
 
 const raycaster = new THREE.Raycaster();
@@ -1950,8 +2158,7 @@ function unlockScroll() {
   window.removeEventListener("touchmove", swallow);
   window.removeEventListener("keydown", keyGuard);
   // hand the smoothed camera back to wherever the page actually sits
-  const max = document.documentElement.scrollHeight - window.innerHeight;
-  progressTarget = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+  progressTarget = Math.min(1, Math.max(0, window.scrollY / journeyMax()));
 }
 
 window.__lock = scrollLock; // debug handle
@@ -2435,6 +2642,90 @@ if (numpadEl) {
     if (btn) press(btn.dataset.k);
   });
 }
+/* ============================================================
+   Scrapbook stickers.
+
+   Every entry points at a file in ./assets/. Any file that is not
+   there simply does not render — no broken images — so you can drop
+   them in one at a time. `cut` means the art is already background-free
+   (PNG/WebP with transparency) and gets a white outline instead of a
+   photo border.
+   ============================================================ */
+const STICKERS = [
+  // left side
+  { f: "cats-glasses.png",    css: "left:2%;  top:5%;",    w: 18, rot: -7 },
+  { f: "kawaii-cats.png",     css: "left:1%;  top:31%;",   w: 15, rot: 5 },
+  { f: "tangled.png",         css: "left:3%;  top:53%;",   w: 17, rot: -5 },
+  { f: "suit-cat.png",        css: "left:2%;  top:77%;",   w: 15, rot: 4,  cut: 1 },
+  // right side
+  { f: "birthday-kitten.png", css: "right:2%; top:4%;",    w: 17, rot: 6,  cut: 1 },
+  { f: "hotel-transylvania.png", css: "right:3%; top:29%;",w: 16, rot: -6 },
+  { f: "monkey-heart.png",    css: "right:2%; top:51%;",   w: 15, rot: 5,  cut: 1 },
+  { f: "jack-cat.png",        css: "right:3%; top:73%;",   w: 15, rot: -5, cut: 1 },
+  // tucked over the board's edges
+  { f: "kissi-dedo.png",      css: "left:22%; top:2%;",    w: 12, rot: -11 },
+  { f: "brush-heart.png",     css: "right:20%;top:8%;",    w: 10, rot: 9,  cut: 1 },
+  { f: "my-girl-heart.png",   css: "left:20%; bottom:9%;", w: 11, rot: -13, cut: 1 },
+  { f: "condom-cat.png",      css: "right:21%;bottom:4%;", w: 11, rot: 7,  cut: 1 },
+  { f: "buff-cat.png",        css: "left:44%; bottom:-2%;",w: 13, rot: 3,  cut: 1 },
+];
+
+(function buildStickers() {
+  const host = document.getElementById("stickers");
+  if (!host) return;
+  STICKERS.forEach((s, i) => {
+    const d = document.createElement("div");
+    d.className = "sticker" + (s.cut ? " cut" : "");
+    d.style.cssText = s.css;
+    d.style.setProperty("--w", s.w + "%");
+    d.style.setProperty("--rot", s.rot + "deg");
+    d.style.animationDelay = (i * 0.06).toFixed(2) + "s";
+    const img = document.createElement("img");
+    img.alt = "";
+    // deliberately not lazy: a missing file must resolve to "removed" up
+    // front, not leave an empty slot until the reader scrolls down
+    img.addEventListener("error", () => d.remove()); // missing file = no slot
+    img.src = "assets/" + s.f;
+    d.appendChild(img);
+    host.appendChild(d);
+  });
+
+  // These two carry src="" in the markup, so they can finish loading (or
+  // fail) before this script runs — check the settled state as well as
+  // listening, or an early 404 would leave a broken image on screen forever.
+  const settle = (img, ok, fail) => {
+    if (!img) return;
+    if (img.complete) {
+      (img.naturalWidth > 0 ? ok : fail)();
+      return;
+    }
+    img.addEventListener("load", ok);
+    img.addEventListener("error", fail);
+  };
+  const boardEl = document.querySelector(".board");
+  const boardImg = document.querySelector(".board-real");
+  settle(boardImg,
+    () => boardEl.classList.add("has-real"),
+    () => boardImg.remove());
+  const polImg = document.querySelector(".pol-photo img");
+  settle(polImg,
+    () => polImg.classList.add("ok"),
+    () => polImg.remove());
+  document.querySelectorAll(".slot img").forEach((img) =>
+    settle(img, () => img.classList.add("ok"), () => img.remove()));
+
+  // pop the stickers on when the page is reached
+  const sb = document.getElementById("scrapbook");
+  if (sb && "IntersectionObserver" in window) {
+    const io = new IntersectionObserver((es) => {
+      es.forEach((e) => {
+        if (e.isIntersecting) { sb.classList.add("sb-reveal"); io.disconnect(); }
+      });
+    }, { threshold: 0.15 });
+    io.observe(sb);
+  }
+})();
+
 // physical keyboard works too
 window.addEventListener("keydown", (e) => {
   if (!document.body.classList.contains("gated") || gatePassed) return;
