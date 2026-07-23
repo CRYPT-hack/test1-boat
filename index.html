@@ -452,11 +452,15 @@
   /* ---------- final page: scrapbook ---------- */
   #scrapbook {
     position: relative; z-index: 6;
+    display: flex; flex-direction: column;
+    background:
+      radial-gradient(ellipse at 50% 30%, #6d1a27 0%, #4d0f1b 55%, #360a13 100%);
+  }
+  .sb-page {
+    position: relative;
     min-height: 100vh;
     padding: 6vh 3vw;
     display: flex; align-items: center; justify-content: center;
-    background:
-      radial-gradient(ellipse at 50% 30%, #6d1a27 0%, #4d0f1b 55%, #360a13 100%);
   }
   #scrapbook::before {
     content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -722,6 +726,7 @@
 
 <!-- ================= the last page: a scrapbook ================= -->
 <section id="scrapbook">
+  <div class="sb-page">
   <div class="sb-stage">
 
     <!-- the board. Drop assets/board.webp in and it replaces this drawing. -->
@@ -811,6 +816,10 @@
     <!-- cute stickers, ringed around the board -->
     <div class="stickers" id="stickers"></div>
   </div>
+  </div>
+
+  <!-- boards 2, 3, 4 stack below, one screen each -->
+  <div id="more-boards"></div>
 </section>
 
 <script type="importmap">
@@ -2669,6 +2678,63 @@ const STICKERS = [
   { f: "condom-cat.png",      css: "right:21%;bottom:4%;", w: 11, rot: 7,  cut: 1 },
   { f: "buff-cat.png",        css: "left:44%; bottom:-2%;",w: 13, rot: 3,  cut: 1 },
 ];
+
+/* Extra scrapbook boards. Each frame is an opaque cut-out, so every photo is a
+   positioned overlay (fractions of the board). Slot positions are measured off
+   the board art by eye and may want a nudge. Photos are optional — a missing
+   file leaves the frame as-is. */
+const BOARDS = [
+  { img: "board2.jpg", slots: [
+    { p: "photo2-1.jpg", left: 19,   top: 4.2,  w: 63.9, h: 27.1, rot: -1 },
+    { p: "photo2-2.jpg", left: 20.4, top: 37.5, w: 65.2, h: 24.5, rot: -1 },
+    { p: "photo2-3.jpg", left: 16.3, top: 68.8, w: 66.6, h: 23.7, rot: -1.5 },
+  ]},
+  { img: "board3.png", slots: [
+    { p: "photo3-1.jpg", left: 9,    top: 19.5, w: 37, h: 15.5, rot: -4 },
+    { p: "photo3-2.jpg", left: 10.5, top: 37,   w: 37, h: 15.5, rot: -4 },
+    { p: "photo3-3.jpg", left: 12,   top: 54.5, w: 37, h: 15.5, rot: -4 },
+    { p: "photo3-4.jpg", left: 13.5, top: 72,   w: 37, h: 15.5, rot: -4 },
+  ]},
+  { img: "board4.png", slots: [
+    { p: "photo4-1.jpg", left: 30,   top: 40,   w: 40, h: 29,   rot: 0 },
+  ]},
+];
+
+(function buildBoards() {
+  const host = document.getElementById("more-boards");
+  if (!host) return;
+  BOARDS.forEach((b) => {
+    const page = document.createElement("div");
+    page.className = "sb-page";
+    const stage = document.createElement("div");
+    stage.className = "sb-stage";
+    const board = document.createElement("div");
+    board.className = "board";
+    const real = document.createElement("img");
+    real.className = "board-real";
+    real.alt = "";
+    real.addEventListener("load", () => board.classList.add("has-real"));
+    real.addEventListener("error", () => page.remove()); // no board image, no page
+    real.src = "assets/" + b.img;
+    board.appendChild(real);
+    b.slots.forEach((s) => {
+      const slot = document.createElement("div");
+      slot.className = "slot";
+      slot.style.cssText =
+        `left:${s.left}%;top:${s.top}%;width:${s.w}%;height:${s.h}%;transform:rotate(${s.rot}deg);`;
+      const img = document.createElement("img");
+      img.alt = "";
+      img.addEventListener("load", () => img.classList.add("ok"));
+      img.addEventListener("error", () => img.remove()); // no photo, frame stays
+      img.src = "assets/" + s.p;
+      slot.appendChild(img);
+      board.appendChild(slot);
+    });
+    stage.appendChild(board);
+    page.appendChild(stage);
+    host.appendChild(page);
+  });
+})();
 
 (function buildStickers() {
   const host = document.getElementById("stickers");
